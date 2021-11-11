@@ -1,10 +1,10 @@
-function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, nullFormula, altFormula, nBoots, glmArgs, tail, doPlot, fitFunc)
-% function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, nullFormula, altFormula, nBoots, glmArgs, tail, doPlot fitFunc)
+function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, fullFormula, termOfInterest, nBoots, glmArgs, tail, doPlot, fitFunc)
+% function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, fullFormula, termOfInterest, nBoots, glmArgs, tail, doPlot, fitFunc)
 %
 % Perform a parametric bootstrap (Bůžková, Lumley & Rice, 2011) in order to
-% see how likely an interaction term is under a null model. We fit the null
-% model (which is only missing the interaction term of interest) to the
-% data, and then generate samples from this null model nPerms times,
+% see how likely an interaction term-of-interest is under a null model. We 
+% fit the null model (which is only missing the term-of-interest) to the
+% data, and then generate samples from this null model many times,
 % fitting the alternative model and keeping the coefficient estimate for
 % the interaction term. This gives a distribution of the interaction from
 % the null model which does not contain it.
@@ -12,16 +12,18 @@ function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, nullForm
 % given this null distribution.
 %
 %
+% 
 % Inputs:
 %   dataTab = table to pass to fitglme for regression, each term in the
 %       formulae must be a column. Variables should be z-scored
-%   nullFormula = fitglme formula for the null model, which does not
-%       contain the term of interest
-%   altFormula = this can be either a formula that is the same as
-%       nullFormula except with one extra fixed effect term, OR it can be
-%       the extra fixed effect term which will be added to the nullFormula.
-%       e.g. 'y ~ 1 + x1 + x2 + x1:x2' or 'x1:x2'
-%       identical to the nullFormula except with one extra fixed term
+%   fullFormula = the full formula with all terms, including the
+%       term-of-interest and any random effects. The term-of-interest will
+%       be removed from this to create the null model.
+%   termOfInterest = one of the terms from the fullFormula which will be
+%       removed to create the null model, and sampled from this. If an
+%       interaction, it should be in the form 'a:b' not 'a*b', e.g. if the
+%       fullFormula = 'Y ~ 1 + a*b', this will be expanded into 'Y ~ 1 + a
+%       + b + a:b', so termOfInterest should be 'a:b'.
 %   nBoots = number of bootstraps to do (default = 1000)
 %   glmArgs = cell array of any arguments to pass into fitting function, e.g.
 %       {'link','logit','distribution','binomial'}. default is {}
@@ -68,28 +70,23 @@ function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, nullForm
     elseif ~any(tail == [-1 0 1])
         error('tail must be -1, 0 or 1');
     end
+
     
-    if isempty(regexp(altFormula, '~','ONCE')) % if it is not a full formula, just one term
-        % then make it into a full formula
-        % need to insert it between ' ~ 1' and and random effects
-    
-        parenInd = regexp(nullFormula, '(','ONCE'); % get first parenthesis
-    
-        if isempty(parenInd) % just put at end
-            altFormula = sprintf('%s + %s', nullFormula, altFormula);
-    
-        else % if there are random effects, put new term before they start
-    
-            % put just after before the brackets
-            altFormula = sprintf('%s %s + %s', nullFormula(1:parenInd-1), altFormula, nullFormula(parenInd:end));
-        end
+    if isempty(regexp(fullFormula, '~','ONCE')) % if it is not a full formula, just one term
+        error('fullFormula should be a formula to pass into the lm');
+    end
+
+
+    if ~isempty(regexp(termOfInterest, '~','ONCE')) || ~isempty(regexp(termOfInterest, ' ','ONCE'))
+        % if it is not a full formula, just one term
+        error('termOfInterest should be one term with no spaces, not a formula');
     end
     
     if ~exist('fitFunc','var') || isempty(fitFunc)
         % pick simplest one that will work
     
         % are there random effects?
-        isRE = ~isempty(regexp(nullFormula, '(','ONCE'));
+        isRE = ~isempty(regexp(fullFormula, '(','ONCE'));
         isGLM = ~isempty(glmArgs); % are there glmeArguments
     
         if isRE
@@ -117,20 +114,71 @@ function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, nullForm
     
     %% do the base regressions and check they differ by one term only
     
+    altFit = fitFunc(dataTab, fullFormula, glmArgs{:});
+        
+    if isempty(regexp(fullFormula,'\*','ONCE')) && ~isempty(regexp(fullFormula,termOfInterest,'ONCE')) % if not using ':', expand and add in RE
+        % just pull term out of the given formula
+        tInd = regexpi(fullFormula, termOfInterest); % start of it
+        
+        % need to also remove a plus either before or after
+        plusInds = regexp(fullFormula,'\+');
+
+        % which of those is closest to start/end of term?
+        [~,i] = min(min(abs(plusInds - [tInd; tInd + length(termOfInterest)-1])));
+
+        nullFormula = fullFormula; % copy
+        nullFormula([plusInds(i) tInd:(tInd+length(termOfInterest)-1)]) = [];
+
+        % check there aren't two consecutive +
+        nullNoSpaces = regexprep(nullFormula,' ', '');
+        if any(diff(regexp(nullNoSpaces,'+'))==1)
+            error('nullFormula has too many spaces after removing the term of interest: %s', nullFormula);
+        end
+        
+
+    else
+        % remove the term of interest from the expanded model
+        terms = altFit.CoefficientNames'; % get all fixed effect terms
+
+        % replace 'intercept' with '1'
+        interceptInd = strcmp(terms, '(Intercept)');
+        if sum(interceptInd)==1
+            terms(interceptInd) = {'1'};
+        else
+            terms = [{'-1'}; terms]; % if no intercept, must specify -1
+        end    
+       
+        terms(strcmpi(terms, termOfInterest)) = []; % remove
+        terms(:,2) = {' + '}; % to combine them
+        terms = col(terms'); % change order
+        terms = terms(1:end-1); % remove trailing plus
+        terms = [terms{:}]; % make into one string
+
+        reInd = regexp(fullFormula, '(','ONCE'); % are there random effects?
+        if reInd
+            terms = sprintf('%s + %s', terms, fullFormula(reInd:end)); % add them back in
+        end
+
+        nullFormula = sprintf('%s ~ %s', altFit.ResponseName, terms);
+    end
+
+
+    % get the null model
     nullFit = fitFunc(dataTab, nullFormula, glmArgs{:});
-    altFit = fitFunc(dataTab, altFormula, glmArgs{:});
     
+    % check they only differ by 1 FE term
     altInNull = ismember(altFit.CoefficientNames, nullFit.CoefficientNames);
     
-    if sum(~altInNull) ~= 1
-        error('altFormula must contain ONE term that is not in the nullFormula');
+    if sum(altInNull==0) ~= 1
+        error('altFormula must contain ONE term that is not in the nullFormula:\n nullFormula: %s \nfullFormula: %s\n', nullFormula, fullFormula);
     end
     
     altTermInd = find(~altInNull); % index of altTerm
     
     % print term using
-    fprintf('running parametric bootstrap on the term %s, with %d bootstraps, and function %s\n', altFit.CoefficientNames{altTermInd}, nBoots, char(fitFunc));
-    
+    fprintf('\nrunning parametric bootstrap on the term: %s, \nnullModel: %s \nFullModel: %s \nNum bootstraps: %d (maximum p-value resolution = %g) \nFitting function: %s \nTail: %d\n', ...
+        termOfInterest, nullFormula, fullFormula, nBoots, 1/nBoots, char(fitFunc),tail);
+
     trueBeta = altFit.Coefficients.Estimate(altTermInd); % get true effect in data
     origP = altFit.Coefficients.pValue(altTermInd); % and the original p-value
     
@@ -152,7 +200,7 @@ function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, nullForm
             regTab1.(nullFit.ResponseName) = random(nullFit, dataTab);
     
             % fit altModel
-            altFit1 = fitFunc(regTab1, altFormula, glmArgs{:});
+            altFit1 = fitFunc(regTab1, fullFormula, glmArgs{:});
         end
 
         
@@ -185,8 +233,27 @@ function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, nullForm
     elseif tail == 0
     
         p = mean(abs(nullBetas) >= abs(trueBeta)); % prob of getting as extreme or more (i.e. pos and neg together)
+%         p = 1 - abs(mean(nullBetas <= trueBeta) - mean(nullBetas >= trueBeta));
     
     end
+
+
+    %% estimate given FWER
+    
+    if tail == 0 % two-tailed
+        bMax = prctile(abs(nullBetas), 95);
+        alphaEst = mean(nullBetas >= bMax);
+%         bMax = prctile(nullBetas, [2.5 97.5]);
+%         alphaEst = mean(~isBetween(nullBetas, bMax,0));
+
+    elseif tail == 1 % one tailed
+        bMax = prctile(nullBetas, 97.5);
+        alphaEst = mean(nullBetas >= bMax);
+    elseif tail == -1 % one tailed
+        bMax = prctile(nullBetas, 2.5);
+        alphaEst = mean(nullBetas <= bMax);
+    end
+    fprintf('Estimated FWER: %f\n',alphaEst);
 
 end
 
