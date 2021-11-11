@@ -1,5 +1,5 @@
-function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, fullFormula, termOfInterest, nBoots, glmArgs, tail, doPlot, fitFunc)
-% function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, fullFormula, termOfInterest, nBoots, glmArgs, tail, doPlot, fitFunc)
+function [p, trueT, trueB, origP, nullT] = ParametricBootstrap(dataTab, fullFormula, termOfInterest, nBoots, glmArgs, tail, doPlot, fitFunc)
+% function [p, trueT, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, fullFormula, termOfInterest, nBoots, glmArgs, tail, doPlot, fitFunc)
 %
 % Perform a parametric bootstrap (Bůžková, Lumley & Rice, 2011) in order to
 % see how likely an interaction term-of-interest is under a null model. We 
@@ -40,13 +40,15 @@ function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, fullForm
 %       passing in glmArgs but want to use fitglm, then specify it.
 %
 % Outputs:
-%   p = p-value (probability of the alternative term-of-interest under the
-%       null distribution
-%   trueBeta = alternate term-of-interest coefficient estimate from the
+%   p = p-value (probability of the alternate term-of-interest under the
+%       null distribution)
+%   trueT = t-statistic for the term-of-interest in the full model fit to
+%       real data (i.e. the 'real' estimate)
+%   trueB = alternate term-of-interest coefficient estimate from the
 %     alterate model fit to the real data (i.e. the 'real' estimate)
 %   origP = alternate term-of-interest p-value from fitting the alternate
 %       model to the read data (i.e. 'real' p-value)
-%   nullBetas = coefficient estimates of the alternate model
+%   nullT = coefficient t-statistics for the alternate model
 %     term-of-interest, generated from the null model [nBoots x 1]
 %
 % John Grogan, 2021
@@ -179,14 +181,15 @@ function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, fullForm
     fprintf('\nrunning parametric bootstrap on the term: %s, \nnullModel: %s \nFullModel: %s \nNum bootstraps: %d (maximum p-value resolution = %g) \nFitting function: %s \nTail: %d\n', ...
         termOfInterest, nullFormula, fullFormula, nBoots, 1/nBoots, char(fitFunc),tail);
 
-    trueBeta = altFit.Coefficients.Estimate(altTermInd); % get true effect in data
+    trueT = altFit.Coefficients.tStat(altTermInd); % get true t-stat in data
     origP = altFit.Coefficients.pValue(altTermInd); % and the original p-value
+    trueB = altFit.Coefficients.Estimate(altTermInd); % and beta
     
     %% do bootstrapping
     
     
     regTab1 = dataTab; % copy this to overwrite data
-    nullBetas = zeros(nBoots,1); % preallocate
+    nullT = zeros(nBoots,1); % preallocate
     
     for i = 1:nBoots
         if mod(i,100)==0; disp(i); end % counter
@@ -205,8 +208,8 @@ function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, fullForm
 
         
         % get beta
-        nullBetas(i) = altFit1.Coefficients.Estimate(altTermInd);
-    
+        nullT(i) = altFit1.Coefficients.tStat(altTermInd);
+        nullB(i) = altFit1.Coefficients.Estimate(altTermInd);
     end
     
     
@@ -214,8 +217,8 @@ function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, fullForm
     
     if doPlot
         figure();
-        histogram(nullBetas);
-        xline(trueBeta);
+        histogram(nullT);
+        xline(trueT);
         xlabel('generated \beta from null model');
         ylabel('frequency');
     end
@@ -224,16 +227,16 @@ function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, fullForm
     
     
     if tail == 1
-        p = mean(nullBetas >= trueBeta); % prob of getting as big or bigger
+        p = mean(nullT >= trueT); % prob of getting as big or bigger
     
     elseif tail == -1
     
-        p = mean(nullBetas <= trueBeta); % prob of getting as small or smaller
+        p = mean(nullT <= trueT); % prob of getting as small or smaller
     
     elseif tail == 0
     
-        p = mean(abs(nullBetas) >= abs(trueBeta)); % prob of getting as extreme or more (i.e. pos and neg together)
-%         p = 1 - abs(mean(nullBetas <= trueBeta) - mean(nullBetas >= trueBeta));
+%         p = mean(abs(nullT) >= abs(trueT)); % prob of getting as extreme or more (i.e. pos and neg together)
+        p = 1 - abs(mean(nullT <= trueT) - mean(nullT>= trueT));
     
     end
 
@@ -241,17 +244,17 @@ function [p, trueBeta, origP, nullBetas] = ParametricBootstrap(dataTab, fullForm
     %% estimate given FWER
     
     if tail == 0 % two-tailed
-        bMax = prctile(abs(nullBetas), 95);
-        alphaEst = mean(nullBetas >= bMax);
-%         bMax = prctile(nullBetas, [2.5 97.5]);
-%         alphaEst = mean(~isBetween(nullBetas, bMax,0));
+%         tMax = prctile(abs(nullT), 95);
+%         alphaEst = mean(nullT >= tMax);
+        tMax = prctile(nullT, [2.5 97.5]);
+        alphaEst = mean(~isBetween(nullT, tMax,0));
 
     elseif tail == 1 % one tailed
-        bMax = prctile(nullBetas, 97.5);
-        alphaEst = mean(nullBetas >= bMax);
+        tMax = prctile(nullT, 97.5);
+        alphaEst = mean(nullT >= tMax);
     elseif tail == -1 % one tailed
-        bMax = prctile(nullBetas, 2.5);
-        alphaEst = mean(nullBetas <= bMax);
+        tMax = prctile(nullT, 2.5);
+        alphaEst = mean(nullT <= tMax);
     end
     fprintf('Estimated FWER: %f\n',alphaEst);
 
