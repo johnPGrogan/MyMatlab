@@ -1,5 +1,5 @@
-function statTable = StatsTableFromLMECells(lmeCells, colNames, statName, keepIntercept)
-% function statTable = StatsTableFromLMECells(lmeCells, colNames, statName, keepIntercept)
+function statTable = StatsTableFromLMECells(lmeCells, colNames, statName, keepIntercept, rowNames)
+% function statTable = StatsTableFromLMECells(lmeCells, colNames, statName, keepIntercept, rowNames)
 % extract coefficient values from a cell vector of LME/GLME outputs
 % store as a table
 % Inputs:
@@ -7,6 +7,8 @@ function statTable = StatsTableFromLMECells(lmeCells, colNames, statName, keepIn
 %   colNames = cell array of strings. names to give columns of table created. 
 %   statName = name of statistic to get from Coefficients. default is 'pValue'
 %   keepIntercept = whether to keep the intercept or not (default = 0)
+%   rowNames = cell/string of rownames to use, must match number of effects
+%       extracted
 % 
 % Outputs:
 %   stats = table with row per term and column per cell
@@ -65,3 +67,10 @@ end
 if ~keepIntercept
     statTable(1,:) = [];
 end    
+
+% change row names?
+% pick row names
+if exist('rowNames','var') && ~isempty(rowNames)
+    statTable.Properties.RowNames = rowNames;
+end
+
