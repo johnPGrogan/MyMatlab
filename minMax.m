@@ -3,7 +3,9 @@ function [Y, I] = minMax(X, dim)
 % return minimum and maximum values
 % Inputs:   X = vector or matrix of values
 %           DIM = dimension to operate along for min() and max(), can be
-%               integer or 'all'. see 'help min'
+%               integer or 'all'.  if not given, will call min() and max() 
+%               without dimension argument, which usually runs across the
+%               first dimension (see 'help min')
 % 
 % Outputs:  Y = multidimensional array of min and max values, concatenated
 %               along DIM dimension, i.e. dim=1: 2xN array; dim=2: Nx2
@@ -13,26 +15,31 @@ function [Y, I] = minMax(X, dim)
 % 
 % John Grogan
 
-if ~exist('dim','var') || isempty(dim) % default = 1
-    dim = 1;
-end
+if ~exist('dim','var') || isempty(dim) % run min + max without dims argument
+    yMin = min(X);
+    yMax = max(X);
+    if isscalar(yMin) && isscalar(yMax)
+        Y = [yMin yMax];
+    else
+        Y = [yMin; yMax];
+    end
 
-if isstr(dim) && strcmp(dim,'all') % cannot get inds for 'all'
-    yMin = min(X, [], dim);    
-    yMax = max(X, [], dim);
-    I = [];
+else % if dim is given
     
-    % cat
-    Y = cat(1, yMin, yMax);
-else
-    [yMin, iMin] = min(X, [], dim);
-    [yMax, iMax] = max(X, [], dim);
-    I = cat(dim, iMin, iMax);
+    if isstr(dim) && strcmp(dim,'all') % cannot get inds for 'all'
+        yMin = min(X, [], dim);    
+        yMax = max(X, [], dim);
+        I = [];
+        
+        % cat
+        Y = cat(1, yMin, yMax);
+    else
+        [yMin, iMin] = min(X, [], dim);
+        [yMax, iMax] = max(X, [], dim);
+        I = cat(dim, iMin, iMax);
+        
+        % cat
+        Y = cat(dim, yMin, yMax);
+    end
     
-    % cat
-    Y = cat(dim, yMin, yMax);
 end
-
-
-
-
