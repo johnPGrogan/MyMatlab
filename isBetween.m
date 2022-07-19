@@ -2,11 +2,12 @@ function yes = isBetween(data, limits, isInclusive)
 % check whether number lies between two others
 % Inputs:
 %   data = matrix of numbers
-%   limits = [min max] limits to look between
+%   limits = [n x 2] matrix of [min max] limits to look between. returns 1 
+%       row of booleans per row of limits
 %   isInclusive: 1 = inclusive boundaries, 0 = exclusive. default = 1
 % 
 % Outputs:
-%   yes: 1 = item is between them, 0 = not
+%   yes: 1 = item is between them, 0 = not. (n rows, boolean)
 % 
 % John Grogan, 2020
 
@@ -21,11 +22,11 @@ end
 
 if isInclusive
     
-    yes = data >= limits(1) & data <= limits(2);
+    yes = data >= limits(:,1) & data <= limits(:,2);
     
 else
     
-    yes = data > limits(1) & data < limits(2);
+    yes = data > limits(:,1) & data < limits(:,2);
     
 end
 
