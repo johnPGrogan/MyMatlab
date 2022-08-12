@@ -6,7 +6,7 @@ function edf2ascMat(fileName, exeFile, overwrite)
 % overwrite [optional]: 1=overwrite the asc file, 0=never, []= ask each time
 % default is "..\..\..\..\OneDrive - TCDUD.onmicrosoft.com\Other\edf_converter\@Edf2Mat\private\edf2asc.exe"
 
-if ~exist('exeFile','var')
+if ~exist('exeFile','var') || isempty(exeFile)
     exeFile = '"..\..\..\..\..\OneDrive - TCDUD.onmicrosoft.com\OtherOD\edf_converter\@Edf2Mat\private\edf2asc.exe"';
 end
 if ~exist('overwrite','var')
