@@ -27,7 +27,7 @@ if iscell(mat)%if cell
         numInstances = cat(dim2,numInstances,numInst);
     end
     
-elseif isnumeric(mat)%if number
+elseif isnumeric(mat) || islogical(mat)%if number
     
     for i = 1:length(uniqs)
         numInst = sum(mat == uniqs(i),dim);
