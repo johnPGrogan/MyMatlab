@@ -1,3 +1,4 @@
+% eegfilt2 is like eegfilt, but allows control over verbosity
 % eegfilt2() -  (high|low|band)-pass filter data using two-way least-squares 
 %              FIR filtering. Optionally uses the window method instead of 
 %              least-squares. Multiple data channels and epochs supported.
@@ -16,6 +17,7 @@
 %   revfilt     = [0|1] reverse filter (i.e. bandpass filter to notch filter). {default 0}
 %   firtype     = 'firls'|'fir1' {'firls'}
 %   causal      = [0|1] use causal filter if set to 1 (default 0)
+%   verbose     = 1=allow all fprintf, 0=suppress all fprintf+warnings (errors still allowed). (default 0).
 %
 % Outputs:
 %    smoothdata = smoothed data
@@ -58,11 +60,11 @@
 % 01-25-02 reformated help & license, added links -ad
 % 03-20-12 added firtype option -cb
 
-function [smoothdata,filtwts] = eegfilt(data,srate,locutoff,hicutoff,epochframes,filtorder,revfilt,firtype,causal)
+function [smoothdata,filtwts] = eegfilt2(data,srate,locutoff,hicutoff,epochframes,filtorder,revfilt,firtype,causal, verbose)
 
 if nargin<4
     fprintf('');
-    help eegfilt
+    help eegfilt2
     return
 end
 
@@ -110,9 +112,12 @@ end
 if nargin<9
     causal = 0;
 end
+if nargin<10
+    verbose = 0; % suppress fprintf 
+end
 
 if strcmp(firtype, 'firls')
-    warning('Using firls to estimate filter coefficients. We recommend that you use fir1 instead, which yields larger attenuation. In future, fir1 will be used by default!');
+    if verbose; warning('Using firls to estimate filter coefficients. We recommend that you use fir1 instead, which yields larger attenuation. In future, fir1 will be used by default!'); end
 end
 
 if isempty(filtorder) || filtorder==0,
@@ -139,7 +144,7 @@ if epochs*epochframes ~= frames,
 end
 
 if filtorder*3 > epochframes,   % Matlab filtfilt() restriction
-    fprintf('eegfilt(): filter order is %d. ',filtorder);
+    if verbose; fprintf('eegfilt(): filter order is %d. ',filtorder); end
     error('epochframes must be at least 3 times the filtorder.');
 end
 if (1+trans)*hicutoff/nyq > 1
@@ -148,16 +153,18 @@ end
 
 if locutoff > 0 && hicutoff > 0,    % bandpass filter
     if revfilt
-        fprintf('eegfilt() - performing %d-point notch filtering.\n',filtorder);
+        if verbose; fprintf('eegfilt() - performing %d-point notch filtering.\n',filtorder); end
     else
-        fprintf('eegfilt() - performing %d-point bandpass filtering.\n',filtorder);
+        if verbose; fprintf('eegfilt() - performing %d-point bandpass filtering.\n',filtorder); end
     end
-    fprintf('            If a message, ''Matrix is close to singular or badly scaled,'' appears,\n');
-    fprintf('            then Matlab has failed to design a good filter. As a workaround, \n');
-    fprintf('            for band-pass filtering, first highpass the data, then lowpass it.\n');
+    if verbose
+        fprintf('            If a message, ''Matrix is close to singular or badly scaled,'' appears,\n');
+        fprintf('            then Matlab has failed to design a good filter. As a workaround, \n');
+        fprintf('            for band-pass filtering, first highpass the data, then lowpass it.\n');
+    end
     if strcmp(firtype, 'firls')
         f=[MINFREQ (1-trans)*locutoff/nyq locutoff/nyq hicutoff/nyq (1+trans)*hicutoff/nyq 1];
-        fprintf('eegfilt() - low transition band width is %1.1g Hz; high trans. band width, %1.1g Hz.\n',(f(3)-f(2))*srate/2, (f(5)-f(4))*srate/2);
+        if verbose; fprintf('eegfilt() - low transition band width is %1.1g Hz; high trans. band width, %1.1g Hz.\n',(f(3)-f(2))*srate/2, (f(5)-f(4))*srate/2); end
         m=[0       0                      1            1            0                      0];
     elseif strcmp(firtype, 'fir1')
         filtwts = fir1(filtorder, [locutoff, hicutoff]./(srate/2));
@@ -166,10 +173,10 @@ elseif locutoff > 0                % highpass filter
     if locutoff/nyq < MINFREQ
         error(sprintf('eegfilt() - highpass cutoff freq must be > %g Hz\n\n',MINFREQ*nyq));
     end
-    fprintf('eegfilt() - performing %d-point highpass filtering.\n',filtorder);
+    if verbose; fprintf('eegfilt() - performing %d-point highpass filtering.\n',filtorder); end
     if strcmp(firtype, 'firls')
         f=[MINFREQ locutoff*(1-trans)/nyq locutoff/nyq 1];
-        fprintf('eegfilt() - highpass transition band width is %1.1g Hz.\n',(f(3)-f(2))*srate/2);
+        if verbose; fprintf('eegfilt() - highpass transition band width is %1.1g Hz.\n',(f(3)-f(2))*srate/2); end
         m=[   0             0                   1      1];
     elseif strcmp(firtype, 'fir1')
         filtwts = fir1(filtorder, locutoff./(srate/2), 'high');
@@ -178,10 +185,10 @@ elseif hicutoff > 0                %  lowpass filter
     if hicutoff/nyq < MINFREQ
         error(sprintf('eegfilt() - lowpass cutoff freq must be > %g Hz',MINFREQ*nyq));
     end
-    fprintf('eegfilt() - performing %d-point lowpass filtering.\n',filtorder);
+    if verbose; fprintf('eegfilt() - performing %d-point lowpass filtering.\n',filtorder); end
     if strcmp(firtype, 'firls')
         f=[MINFREQ hicutoff/nyq hicutoff*(1+trans)/nyq 1];
-        fprintf('eegfilt() - lowpass transition band width is %1.1g Hz.\n',(f(3)-f(2))*srate/2);
+        if verbose; fprintf('eegfilt() - lowpass transition band width is %1.1g Hz.\n',(f(3)-f(2))*srate/2); end
         m=[     1           1              0                 0];
     elseif strcmp(firtype, 'fir1')
         filtwts = fir1(filtorder, hicutoff./(srate/2));
@@ -216,10 +223,10 @@ for e = 1:epochs                % filter each epoch, channel
             end
         end
         if epochs == 1
-            if rem(c,20) ~= 0, fprintf('.');
-            else               fprintf('%d',c);
+            if rem(c,20) ~= 0, if verbose; fprintf('.'); end
+            else;              if verbose; fprintf('%d',c); end
             end
         end
     end
 end
-fprintf('\n');
+if verbose; fprintf('\n'); end
