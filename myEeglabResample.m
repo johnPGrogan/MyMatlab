@@ -37,35 +37,10 @@ newRate = oldRate*p/q;
 [nTr, nT, nPP, nOthers] = size(data);
 
 nT2 = ceil(nT * p/q); % new size
-%% run on each channel + trial separately
 
-newData = NaN(nTr,nT2,nPP);
-for i = 1:nTr
-    for j = 1:nPP
-        newData(i,:,j) = myresample(data(i,:,j)', p, q, fc, df)';
-    end
-end
+%% padding to avoid artifacts at the beginning and at the end
+% this is unaffected by size of data on each trial
 
-
-% re-calc times
-newLims = [t(1), t(1) + (nT2-1)/newRate];
-newT = linspace(newLims(1), newLims(2), nT2);
-
-
-end
-%%
-
-
-
-function tmpeeglab = myresample(data, p, q, fc, df)
-
-if length(data) < 2
-    tmpeeglab = data;
-    return;
-end
-
-
-% padding to avoid artifacts at the beginning and at the end
 % Andreas Widmann May 5, 2011
 
 %The resample command introduces substantial artifacts at beginning and end
@@ -93,6 +68,37 @@ b = p * b; % Normalize filter kernel to inserted zeros
 
 % Padding, see bug 1017
 nPad = ceil((m / 2) / q) * q; % Datapoints to pad, round to integer multiple of q for unpadding
+
+
+%% run on each channel + trial separately
+
+newData = NaN(nTr,nT2,nPP);
+for i = 1:nTr
+    for j = 1:nPP
+        newData(i,:,j) = myresample(data(i,:,j)', p, q, b, nPad)';
+    end
+end
+
+
+% re-calc times
+newLims = [t(1), t(1) + (nT2-1)/newRate];
+newT = linspace(newLims(1), newLims(2), nT2);
+
+
+end
+%%
+
+
+
+function tmpeeglab = myresample(data, p, q, b, nPad)
+
+if length(data) < 2
+    tmpeeglab = data;
+    return;
+end
+
+
+
 startPad = repmat(data(1, :), [nPad 1]);
 endPad = repmat(data(end, :), [nPad 1]);
 
