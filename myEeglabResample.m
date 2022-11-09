@@ -46,7 +46,7 @@ nT2 = ceil(nT * p/q); % new size
 
 
 if nargout==2
-    if ~exist('t','var') || ~isempty(t) 
+    if ~exist('t','var') || isempty(t) 
         error('new time-vector requested as output , but not inputted');
     else
         % re-calc times
