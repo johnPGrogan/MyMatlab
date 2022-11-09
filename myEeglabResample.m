@@ -1,20 +1,26 @@
-function [newData, newT] = myEeglabResample(data, t, oldRate, newRate, fc, df)
+function [newData, newT] = myEeglabResample(data, oldRate, newRate, t, fc, df)
 % function myEeglabResample(data, oldRate, newRate, fc, df)
 % Copied from pop_resample in eeglab, just the algorithm bit, without all the
-% EEGlab structure stuff
+% EEGlab structure stuff. It also applies resample across all trials/pps in one go
+% Therefore the padding includes any NaN that are around the data - need to double
+% check that this isn't giving artefacts. If so, need to rewrite this to only
+% run on non-nan values and to do the padding separately
 %
 % Inputs:
-%   data = 3D matrix of EEG data, with time in second dimension
-%   t = timepoints, will resample those too
+%   data = matrix of EEG data, with time in second dimension (works up to 5-dim matrix currently)
 %   oldRate = current recording frequency (Hz)
 %   newRate = frequency to resample to (Hz)
-%
 % Optional inputs:
+%   t = timepoints, will resample those too
 %   fc         - anti-aliasing filter cutoff (pi rad / sample)
 %                {default 0.9}
 %   df         - anti-aliasing filter transition band width (pi rad /
 %                sample) {default 0.2}
 %
+% Outputs:
+%   newData = matrix with diff number of columns corresponding to new sampling rate
+%   newT = downsampled time vector too
+%   
 
 %% inputs
 
@@ -34,9 +40,20 @@ end
 newRate = oldRate*p/q;
 
 
-[nTr, nT, nPP, nOthers] = size(data);
+nT = size(data,2);
 
 nT2 = ceil(nT * p/q); % new size
+
+
+if nargout==2
+    if ~exist('t','var') || ~isempty(t) 
+        error('new time-vector requested as output , but not inputted');
+    else
+        % re-calc times
+        newLims = [t(1), t(1) + (nT2-1)/newRate];
+        newT = linspace(newLims(1), newLims(2), nT2);
+    end
+end
 
 %% padding to avoid artifacts at the beginning and at the end
 % this is unaffected by size of data on each trial
@@ -69,44 +86,18 @@ b = p * b; % Normalize filter kernel to inserted zeros
 % Padding, see bug 1017
 nPad = ceil((m / 2) / q) * q; % Datapoints to pad, round to integer multiple of q for unpadding
 
+%% pad now, and then run across entire matrix at once
+startPad = repmat(data(:, 1, :,:,:), [1 nPad 1 1 1]);
+endPad = repmat(data(:, end, :,:,:), [1 nPad 1 1 1]);
 
-%% run on each channel + trial separately
+newData = [startPad, data, endPad];
 
-newData = NaN(nTr,nT2,nPP);
-for i = 1:nTr
-    for j = 1:nPP
-        newData(i,:,j) = myresample(data(i,:,j)', p, q, b, nPad)';
-    end
-end
-
-
-% re-calc times
-newLims = [t(1), t(1) + (nT2-1)/newRate];
-newT = linspace(newLims(1), newLims(2), nT2);
-
-
-end
-%%
-
-
-
-function tmpeeglab = myresample(data, p, q, b, nPad)
-
-if length(data) < 2
-    tmpeeglab = data;
-    return;
-end
-
-
-
-startPad = repmat(data(1, :), [nPad 1]);
-endPad = repmat(data(end, :), [nPad 1]);
-
-% Resampling
-tmpeeglab = resample([startPad; data; endPad], p, q, b);
+newData = resample(newData, p,q,b,'dimension',2); % work across time
 
 % Remove padding
-nPad = nPad * p / q; % # datapoints to unpad
-tmpeeglab = tmpeeglab(nPad + 1:end - nPad, :); % Remove padded data
+nPad = nPad  * p / q; % # datapoints to unpad
+newData = newData(:, (nPad + 1):(end - nPad), :,:,:); % Remove padded data
+
+
 
 end
