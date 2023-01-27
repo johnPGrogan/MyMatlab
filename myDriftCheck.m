@@ -1,5 +1,5 @@
-function myDriftCheck(el, fixWinSize, deg2px, waitTime, center, fixCross, drawRed)
-% function myDriftCheck(el, fixWinSize, deg2px, waitTime, center, fixCross)
+function isFixated = myDriftCheck(el, fixWinSize, deg2px, waitTime, center, fixCross, drawRed)
+% function isFixated = myDriftCheck(el, fixWinSize, deg2px, waitTime, center, fixCross)
 % checks if mean eye-position over 50 samples is within fixWinSize tolerance 
 % from center of screen, returns if true at any point during waitTime.
 % otherwise, it stops recording, runs a DriftCorrection via Eyelink, 
@@ -21,8 +21,15 @@ function myDriftCheck(el, fixWinSize, deg2px, waitTime, center, fixCross, drawRe
 %   fixCross: function handle for fixation cross drawing
 %   drawRed: 1=draw red square for current eye-position during wait. 0=don't
 % 
+% Outputs:
+%   isFixated: 1 = is fixated within waitTime for 50ms, 0 = not fixed, so
+%       drift-correction is applied (fixation isn't checked again after
+%       this, so do a while-loop if you want to confirm that after
+%       drift-correction)
 % 
 % John Grogan, 2022. Based on code from Elaine Corbett and Sanjay Manohar.
+
+isFixated = 0;
 
 if ~exist('drawRed', 'var') || isempty(drawRed)
     drawRed = 0;
@@ -50,6 +57,7 @@ while (GetSecs-t) < waitTime
             Screen('flip', el.window);
         end
         if mean(sqrt(x.^2 + y.^2)./deg2px) < fixWinSize % if within fix tol
+            isFixated = 1;
             return;
         end
 
