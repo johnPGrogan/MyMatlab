@@ -33,8 +33,12 @@ toKeep = ismember(oldFields, fieldsToKeep);
 
 if sum(toKeep) ~= length(fieldsToKeep)
     error('some fieldsToKeep were not found in fieldnames(oldStruct)');
-elseif all(toKeep)
+elseif ~any(toKeep)
     error('all fields will be removed');
+elseif all(toKeep)
+    warning('all fields are being kept, oldStruct is returned unchanged');
+    newStruct = oldStruct;
+    return;
 end
 
 
