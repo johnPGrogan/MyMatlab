@@ -3,8 +3,13 @@ function myYlim(YData, lims)
 % will adjust for negative values
 % Inputs:
 %   YData = vector of YData points (e.g. h.YData, [h.YData, h1.YData])
-%   lims = relative limits e.g. [-0.05 0.05] to adjust the minMax by
+%   lims = relative limits to adjust the minMax by (default is [-.05 .05],
+%       i.e. +/- 5%)
 % 
+
+if ~exist('lims','var') || isempty(lims)
+    lims = [-.05 .05];
+end
 
 yl = minMax(YData,'all')'; %[min max]
 
