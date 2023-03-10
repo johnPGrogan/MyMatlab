@@ -82,6 +82,8 @@ dvMat(nanRows,:,:) = [];
 dataTab(nanRows,:) = [];
 % n = size(dvMat,1); % update
 
+% also remove unused columns from table?
+
 %% run one to check how many coefficients are returned
 
 dataTab.DV = dvMat(:,1,1);
@@ -96,6 +98,7 @@ nC = sum(coeffInds);
 %% run the true regressions
 
 [trueT, trueB, trueP] = deal(NaN(nC, nT, nCh)); % [nC, times chans]
+tic;
 parfor iT = 1:nT
     if mod(iT, round(nT/100))==0; disp(iT);end
     dataTab1 = dataTab;
@@ -110,7 +113,7 @@ parfor iT = 1:nT
         trueB(:,iT,iCh) = f.Coefficients.Estimate(coeffInds);
     end
 end
-
+toc
 %% now run the permutation regressions
 
 % need to get the indices to permute along
@@ -137,6 +140,7 @@ tabInds = table2array(dataTab(:, ismember(dataTab.Properties.VariableNames, colN
 
 [permT, permB, permP] = deal(NaN(nC, nT, nCh, nPerms));
 
+tic;
 parfor iP = 1:nPerms
     if mod(iP,round(nPerms/100))==0; disp(iP); end
 
@@ -164,7 +168,7 @@ parfor iP = 1:nPerms
         end
     end
 end
-
+toc
 
 
 %% cluster-correct the t-values
@@ -214,9 +218,9 @@ else
         % The returned p-value is close to 0 if either tail is significant, but
         % must be tested with a threshold of ALPHA/2.
 
-        % I think we can do
-        p_vals = (p_vals_upper + p_vals_lower)/2;
-
+%         % I think we can do
+%         p_vals = (p_vals_upper + p_vals_lower)/2;
+% 
     else % one-tailed
 
         % need to flip for -1/1?
