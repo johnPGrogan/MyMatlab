@@ -33,6 +33,15 @@ else % if dim is given
         
         % cat
         Y = cat(1, yMin, yMax);
+    elseif length(dim) > 1 % need to use linear, means indices are across combined
+        [yMin, iMin] = min(X, [], dim,'linear');
+        [yMax, iMax] = max(X, [], dim,'linear');
+
+        % cat across smallest dimension
+        
+        I = cat(min(dim), iMin, iMax);
+        % cat
+        Y = cat(min(dim), yMin, yMax);
     else
         [yMin, iMin] = min(X, [], dim);
         [yMax, iMax] = max(X, [], dim);
