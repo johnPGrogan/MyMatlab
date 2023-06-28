@@ -63,11 +63,12 @@ function doInterp(iPP, chansToInterp, rawFolder, ppID, interpFolder, nChans, nSa
         if 1% doPlots == 1
             clf;subplot(1,2,1);errorBarPlot(permute(epoch.erp(badChans,:,:),[3 2 1]), 'area',1); title('raw'); 
             ylim([-30 30]);
-            subplot(1,2,2);errorBarPlot(permute(EEG.data(badChans,:,:),[3 2 1]), 'area',1);title('interpolated');
-    %             makeSubplotScalesEqual(1,2);
-            ylim([-30 30]);
-            SuperTitle(iPP);
-            drawnow;
+            % this was plotting un-baselined, so often looked worse
+%             subplot(1,2,2);errorBarPlot(permute(EEG.data(badChans,:,:),[3 2 1]), 'area',1);title('interpolated');
+%     %             makeSubplotScalesEqual(1,2);
+%             ylim([-30 30]);
+%             SuperTitle(iPP);
+%             drawnow;
         end
         epoch.erp(1:nChans,:,:) = EEG.data; % now replace the relavant parts of the big 'erp' matrix with the interpolated version
             % Note the externals will still be sitting there in channels 129-136, unaltered.
@@ -75,6 +76,15 @@ function doInterp(iPP, chansToInterp, rawFolder, ppID, interpFolder, nChans, nSa
         % re-baseline
         epoch.baseline(1:nChans,:,:) = nanmean(EEG.data(:, blInds, :),2);
         epoch.erp(1:nChans,:,:) = EEG.data - epoch.baseline(1:nChans,:,:); % subtract baseline
+        
+        % show re-baselined data 
+        if 1 % doPlots==1
+            subplot(1,2,2);errorBarPlot(permute(epoch.erp(badChans,:,:),[3 2 1]), 'area',1); title('raw'); 
+    %             makeSubplotScalesEqual(1,2);
+            ylim([-30 30]);
+            SuperTitle(iPP);
+            drawnow;
+        end
     end
     
     % average reference
