@@ -115,7 +115,7 @@ blinkDurations = blinkDurations/1000;
 
 %% remove any saccades occuring inside a blink
 
-isInsideBlink = any(saccStartTimes >= blinkStartTimes & saccEndTimes<=blinkEndTimes); % entire saccade is inside
+isInsideBlink = any(saccStartTimes >= blinkStartTimes & saccEndTimes<=blinkEndTimes,1); % entire saccade is inside
 
 % % should I also remove those that start or end inside a blink?
 % % no, leave for now, as basically acts to extend blink timing for
