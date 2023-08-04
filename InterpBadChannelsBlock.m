@@ -25,7 +25,7 @@ end
 load('ChansToInterpBlock.mat');
 for iPP = 1:fileInfo.nPP
 
-if 1%~exist(fullfile(fileInfo.interpFolder, [fileInfo.ppID{iPP} '_intp.mat']), 'file') % don't re-do
+if ~exist(fullfile(fileInfo.interpFolder, [fileInfo.ppID{iPP} '_intp.mat']), 'file') % don't re-do
     disp(iPP)
     
     doInterp(iPP, chansToInterp, fileInfo.rawFolder, fileInfo.ppID, fileInfo.interpFolder, eeg.nChans, eeg.nSamples, eeg.chanlocs, isBetween(eeg.epochTimes, eeg.blWin));
@@ -69,6 +69,7 @@ function doInterp(iPP, chansToInterp, rawFolder, ppID, interpFolder, nChans, nSa
         disp('interpolating per block:');
         nBlocks = max(epoch.blockNum);
         for i = 1:nBlocks
+            if isempty(badChans{i}); continue; end % skip
             fprintf(' %d, ', i);
             blockInds = epoch.blockNum == i; % get trials in block
             EEGBlock = EEG; % copy
