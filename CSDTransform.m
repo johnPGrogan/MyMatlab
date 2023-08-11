@@ -35,7 +35,7 @@ for iPP = 1:length(f.mat)
     if ~exist(fullfile(csdFolder, [ppID '_intp_csd.mat']), 'file')
         disp(ppID);
         
-        data = load(fullfile(interpFolder, f.mat{iPP}),'erp','chansInterpolated','RS','ref'); % load 
+        data = load(fullfile(interpFolder, f.mat{iPP}),'erp','RS','ref'); % load 
         
         % un-reference data
         data.erp = data.erp + data.ref;
@@ -46,6 +46,11 @@ for iPP = 1:length(f.mat)
         data.t = toc; % around 15mins for iPP=1
         disp(data.t/60);
         
+        % need to re-reference it? Simon's pipeline suggests don't need to
+        % so can remove ref then, as it is not CSD'd
+        data = rmfield(data, 'ref');
+
+
         % re-baseline - sometimes necessary after CSD apparently
         if rebaseline==1
             data.baseline = nanmean(data.erp(:,isBetween(eeg.epochTimes, eeg.blWin),:),2);
