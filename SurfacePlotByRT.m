@@ -1,5 +1,5 @@
-function SurfacePlotByRT(erp, rt, erpTimes, tLims, smoothWin, cLims)
-% function SurfacePlotByRT(erp, rt, erpTimes, tLims, smoothWin)
+function h = SurfacePlotByRT(erp, rt, erpTimes, tLims, smoothWin, cLims)
+% function h = SurfacePlotByRT(erp, rt, erpTimes, tLims, smoothWin)
 % 
 % Surface plot of erp sorted by RT, with smoothing applied
 % Inputs:
@@ -12,15 +12,18 @@ function SurfacePlotByRT(erp, rt, erpTimes, tLims, smoothWin, cLims)
 %     (default=100)
 %   cLims = imagesc colour limits
 % 
+% Outputs:
+%   h = cell array of image handle for heatmap and rt-line
 
 %% setup
 
 if ~exist('smoothWin', 'var') || isempty(smoothWin)
     smoothWin = 100;
 end
-if ~exist('cLims', 'var') || isempty(cLims)
-    cLims = [];
-end
+% done below now
+% if ~exist('cLims', 'var') || isempty(cLims)
+%     cLims = [];
+% end
 
 [nPP, nT, nTr] = size(erp);
 [~, nT2] = size(erpTimes);
@@ -66,10 +69,14 @@ erp = movmean(erp, smoothWin, 1);
 
 %% plot
 
-imagesc(erp(:,xInds), cLims); % plot erp
+if exist('cLims','var') && ~isempty(cLims)
+    h{1} = imagesc(erp(:,xInds), cLims); % plot erp
+else
+    h{1} = imagesc(erp(:,xInds)); % plot erp
+end
 % plot RT line
 hold on;
-plot(rt + x0, 1:numel(rt), '-k','LineWidth',2);
+h{2} = plot(rt + x0, 1:numel(rt), '-k','LineWidth',2);
        
 
 set(gca,'YDir','normal'); % ascending y axis 
