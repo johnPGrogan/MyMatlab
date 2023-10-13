@@ -72,7 +72,8 @@ erp = movmean(erp, smoothWin, 1);
 if exist('cLims','var') && ~isempty(cLims)
     h{1} = imagesc(erp(:,xInds), cLims); % plot erp
 else
-    h{1} = imagesc(erp(:,xInds)); % plot erp
+    cLims = [-1 1] .* max(abs(erp),[],'all'); % make cLims symmetrical
+    h{1} = imagesc(erp(:,xInds),cLims); % plot erp
 end
 % plot RT line
 hold on;
@@ -81,6 +82,7 @@ h{2} = plot(rt + x0, 1:numel(rt), '-k','LineWidth',2);
 
 set(gca,'YDir','normal'); % ascending y axis 
 colorbar; % show this
+
 
 % change xticklables
 xticks(xTickInds);
