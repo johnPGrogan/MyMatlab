@@ -1,5 +1,5 @@
-function h = SurfacePlotByRT(erp, rt, erpTimes, tLims, smoothWin, cLims)
-% function h = SurfacePlotByRT(erp, rt, erpTimes, tLims, smoothWin)
+function [h,c] = SurfacePlotByRT(erp, rt, erpTimes, tLims, smoothWin, cLims)
+% function [h,c] = SurfacePlotByRT(erp, rt, erpTimes, tLims, smoothWin)
 % 
 % Surface plot of erp sorted by RT, with smoothing applied
 % Inputs:
@@ -14,6 +14,7 @@ function h = SurfacePlotByRT(erp, rt, erpTimes, tLims, smoothWin, cLims)
 % 
 % Outputs:
 %   h = cell array of image handle for heatmap and rt-line
+%   c = handle to colorbar
 
 %% setup
 
@@ -81,7 +82,7 @@ h{2} = plot(rt + x0, 1:numel(rt), '-k','LineWidth',2);
        
 
 set(gca,'YDir','normal'); % ascending y axis 
-colorbar; % show this
+c = colorbar; % show this
 
 
 % change xticklables
