@@ -36,7 +36,7 @@ if sum(toKeep) ~= length(fieldsToKeep)
 elseif ~any(toKeep)
     error('all fields will be removed');
 elseif all(toKeep)
-    warning('all fields are being kept, oldStruct is returned unchanged');
+    warning('keepFields:unchanged', 'all fields are being kept, oldStruct is returned unchanged');
     newStruct = oldStruct;
     return;
 end
