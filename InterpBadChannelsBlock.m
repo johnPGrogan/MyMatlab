@@ -95,7 +95,7 @@ function doInterp(iPP, chansToInterp, rawFolder, ppID, interpFolder, nChans, nSa
                 ylim([-50 50]);
             end
         end
-        epoch.erp(1:nChans,:,:) = EEG.data; % now replace the relavant parts of the big 'erp' matrix with the interpolated version
+        epoch.erp(1:nChans,:,:) = single(EEG.data); % now replace the relavant parts of the big 'erp' matrix with the interpolated version
             % Note the externals will still be sitting there in channels 129-136, unaltered.
     
         % re-baseline
