@@ -106,36 +106,45 @@ fprintf('\n%d Time-points, and %d Channels', nT, nCh)
 
 %% regress out RE, leaving just fitted FE + residuals
 
-% formula = 'EEG ~ 1 + fac + (1 | pp1)'; % RE will be removed
-
-% 
-% pp1 = nominal(dataTab.pp1); % same as categorical
-% fac = dataTab.fac; % in tutorial, this was categorical too, though they had only 2 levels,
-
-% run one regression now, to Extract design matrix X
-% EEG = double(squeeze(dvMat(:,1,1)));
-% EEG = table(EEG, fac, pp1);
-dataTab.EEG = double(squeeze(dvMat(:,1,1))); 
-m1 = fitlme(dataTab, formula);
+[mEEG, m1] = regressOutRE(dataTab, dvMat, formula);
 X = designMatrix(m1);
 nFE = size(X,2); % number of fixed effects
 df = m1.DFE; % degrees of freedom for later
 
-colNames = m1.Formula.PredictorNames; % get names to keep
-eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames])); % remove other columns for parfor
+% colNames = m1.Formula.PredictorNames; % get names to keep
+% eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames])); % remove other columns for parfor
 
-fprintf('\nBuilding marginal effects, removing random-effects with formula:\n %s', formula );
-mEEG = NaN(size(dvMat));
-for iCh = 1:nCh
-    parfor iT = 1:nT
-        eegTab1 = eegTab; % copy
-        eegTab1.EEG = dvMat(: ,iT,iCh); % overwrite EEG
 
-        m = fitlme(eegTab1, formula); % fit it
-
-        mEEG(:,iT,iCh) = fitted(m,'Conditional',0) + residuals(m); % Extract marginal EEG = FE + residuals
-    end
-end
+% % formula = 'EEG ~ 1 + fac + (1 | pp1)'; % RE will be removed
+% 
+% % 
+% % pp1 = nominal(dataTab.pp1); % same as categorical
+% % fac = dataTab.fac; % in tutorial, this was categorical too, though they had only 2 levels,
+% 
+% % run one regression now, to Extract design matrix X
+% % EEG = double(squeeze(dvMat(:,1,1)));
+% % EEG = table(EEG, fac, pp1);
+% dataTab.EEG = double(squeeze(dvMat(:,1,1))); 
+% m1 = fitlme(dataTab, formula);
+% X = designMatrix(m1);
+% nFE = size(X,2); % number of fixed effects
+% df = m1.DFE; % degrees of freedom for later
+% 
+% colNames = m1.Formula.PredictorNames; % get names to keep
+% eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames])); % remove other columns for parfor
+% 
+% fprintf('\nBuilding marginal effects, removing random-effects with formula:\n %s', formula );
+% mEEG = NaN(size(dvMat));
+% for iCh = 1:nCh
+%     parfor iT = 1:nT
+%         eegTab1 = eegTab; % copy
+%         eegTab1.EEG = dvMat(: ,iT,iCh); % overwrite EEG
+% 
+%         m = fitlme(eegTab1, formula); % fit it
+% 
+%         mEEG(:,iT,iCh) = fitted(m,'Conditional',0) + residuals(m); % Extract marginal EEG = FE + residuals
+%     end
+% end
 
 
 
