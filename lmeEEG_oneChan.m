@@ -152,11 +152,13 @@ df = m1.DFE; % degrees of freedom for later
 
 fprintf('\nRunning regressions on marginals');
 [t_obs, betas, se] = deal(NaN(nFE, nT, nCh));
-for iCh = 1:nCh
-    parfor iT = 1:nT
-        EEG = mEEG(:,iT,iCh); % copy
-        [t_obs(:,iT,iCh), betas(:,iT,iCh), se(:,iT,iCh)] = lmeEEG_regress(EEG, X)
-    end
+parfor iCh = 1:nCh
+    EEG = mEEG(:,:,iCh); % copy
+    [t_obs(:,:,iCh), betas(:,:,iCh), se(:,:,iCh)] = lmeEEG_regress(EEG, X)
+%     parfor iT = 1:nT
+%         EEG = mEEG(:,iT,iCh); % copy
+%         [t_obs(:,iT,iCh), betas(:,iT,iCh), se(:,iT,iCh)] = lmeEEG_regress(EEG, X)
+%     end
 end
 
 
@@ -169,18 +171,21 @@ fprintf('\nCreating row permutations');
 
 fprintf('\nRunning %d permutations: ', nPerms);
 t_perms = NaN(nFE,nT,nCh,nPerms); % Initialize t-map
-for iP = 1:nPerms
-    if mod(iP,50)==0; fprintf('%d, ', iP); end
+for iCh = 1:nCh
+    EEG = mEEG(:,:,iCh); % copy
+    parfor iP = 1:nPerms
+        XX = X(rowPerms(:,iP),:); % get indices for this perm
+        if mod(iP,50)==0; disp(iP); end % fprintf does not get output within parfor, only at end, so use disp
+        
 
-    XX = X(rowPerms(:,iP),:); % get indices for this perm
-    for iCh = 1:nCh
-        parfor iT = 1:nT
-            EEG = squeeze(mEEG(:,iT,iCh)); % copy 
-            [t_perms(:,iT,iCh,iP)] = lmeEEG_regress(EEG, XX);
-        end
+    
+        [t_perms(:,:,iCh,iP)] = lmeEEG_regress(EEG, XX); % this works across row of samples now
+%         for iT = 1:nT
+%             EEG = squeeze(mEEG(:,iT,iCh)); % copy 
+%             [t_perms(:,iT,iCh,iP)] = lmeEEG_regress(EEG, XX);
+%         end
     end
 end
-
 
 %% findclust
 
