@@ -1,5 +1,5 @@
-function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, nPerms, tail)
-% function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, nPerms, tail)
+function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, nPerms, tail, behTab, formula)
+% function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, nPerms, tail, behTab, formula)
 % 
 % Call lmeEEG pipeline on one-channel's data - quicker way to do
 % mixed-effects permutation testing, by first regressing out random
@@ -17,19 +17,30 @@ function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, nPer
 % 
 % 
 % Inputs:
-%   eegMatrix = [nPP nTimes nLevels nTr] (is less sensitive if using
-%     aggregate-level (i.e. averaged over trials)
+%   eegMatrix = EITHER:
+%           1. matrix of size [nPP, nTimes, nLevels, nTr] (1 channel only), OR
+%           2. matrix of size [nPP*nTr, nTimes, nChannels] - in which case,
+%              you must pass in behTab too!!
 %   nPerms = number of permutations to run
 %   tail = [-1, 0, or 1], the tail of the distribution/test to use. -1 is
 %       the lower tail (alt hypothesis that the effect is below the null),
 %       +1 is the upper tail (e.g. effect > 0), and 0 is two-tailed (i.e.
 %       that there is a difference)
+%   behTab = [OPTIONAL] table with behavioural data and 'pp1' in, if passed
+%       in, assumes that eegMatrix is a matrix or table of same height
+%   formula = [OPTIONAL] regression formula with Random Effects (DV must be 'EEG'),
+%     and fixed-effects either just '1 + fac' if not using behTab, or
+%     variables in behTab if that is given. default is 'EEG ~ 1 + fac + (1 | pp1)'
 % 
 % Outputs:
 %   corrP = cluster-corrected p-values [nCoeff, nTimes] (1st coeff is intercept)
 %   t_perms = [nCoeff, nTimes, 1, nPerms] t-values for each coefficient at
 %     each permutation
-%   t_obs = [nCoeff nTimes] "true" t-values from the 
+%   t_obs = [nCoeff nTimes] "true" t-values from the 'marginal effects
+%     matrix', i.e., with the RandomEffects regressed out
+%   betas = [nCoeff, nTimes] "true" beta coeffs from marginal matrix
+%   se = [nCoeff, nTimes] standard errors of "true" beta coeffs
+%   df = degrees of freedom 
 %  
 
 if ~exist('nPerms','var')
@@ -39,67 +50,94 @@ if ~exist('tail','var')
     tail = 0; % two-tailed
 end
 
+if ~exist('formula', 'var')
+    formula = 'EEG ~ 1 + fac + (1 | pp1)'; % RE will be removed
+end
+
 chan_hood = false; % one channel
 
-% can pass in eeg table? and beh table? and then FE + RE?
+%% can pass in eeg table? and beh table? and then FE + RE?
+if exist('behTab','var')
+    % if this is passed in, eegMatrix should be [nPP*nL*nTr, nT, nCh] matrix
+    % and behTab should be [nPP*nTr, nBehVars] table
 
-%% set up matrix + table
+    dataTab = behTab; % copy [nPP*nTr, nbehvars]
+    dvMat = eegMatrix; % copy [nPP*nTr, nTimes, nChans]
 
-[nPP, nT, nL, nTr] = size(eegMatrix);
+    nNonNan = sum(~isnan(eegMatrix(:,1,1))); % non-nan trials for 1st timepoint
 
-dvMat = reshape(permute(eegMatrix,[1 3 4 2]),nPP*nL*nTr, nT); %[nPP*nL*nTr, nT]
+else % no behTab, so eegMatrix is [nPP, nT, nL, nTr] for 1 channel
+    %% set up matrix + table
+    
+    [nPP, nT, nL, nTr] = size(eegMatrix); % nTr is per level here
+    
+    dvMat = reshape(permute(eegMatrix,[1 3 4 2]),nPP*nL*nTr, nT); %[nPP*nL*nTr, nT]
+    
+    dataTab = [col(repmat(1:nPP, 1, nL*nTr)), col(repmat(1:nL, nPP,nTr)), col(repmat(1:nTr,nL*nPP,1))]; %[pp factor tr]
+    
+    % dataTab = nanzscore(dataTab); % mean-centre and standardise
+    % better to do this after removing NaN rows?
+    
+    dataTab = array2table(dataTab, 'VariableNames', {'pp1','fac','trial'}); % trial is unused
 
-dataTab = [col(repmat(1:nPP, 1, nL*nTr)), col(repmat(1:nL, nPP,nTr)), col(repmat(1:nTr,nL*nPP,1))]; %[pp factor tr]
+    nNonNan = sum(~isnan(eegMatrix(:,1,:,:)),'all'); % non-nan trials for 1st timepoint
+end
 
-% dataTab = nanzscore(dataTab); % mean-centre and standardise
-% better to do this after removing NaN rows?
-
-dataTab = array2table(dataTab, 'VariableNames', {'pp1','fac','trial'}); % trial is unused
+% check sizes
+assert(size(dataTab,1) == size(dvMat,1), 'dataTab and dimension mismatch');
 
 
 %% need to make sure there are no NaNs
 
 % remove all-nan rows?
-toRemove = all(isnan(dvMat),2);
+toRemove = all(isnan(dvMat),2) | all(isnan(table2array(dataTab)),2);
 
-assert(sum(~toRemove) == sum(~isnan(eegMatrix(:,1,:,:)),'all'), 'nan mismatch');
+assert(sum(~toRemove) == nNonNan, 'NaN mismatch');
 
 dataTab(toRemove,:) = [];
 dvMat(toRemove,:,:) = [];
 
 v = dataTab.Properties.VariableNames; % store
-dataTab = varfun(@nanzscore, dataTab); % zscore each column
+dataTab = varfun(@nanzscore, dataTab); % zscore each column after removing NaNs
 dataTab.Properties.VariableNames = v; % replace names
 
 [~, nT, nCh] = size(dvMat);
+fprintf('\n%d Time-points, and %d Channels', nT, nCh)
 
 %% regress out RE, leaving just fitted FE + residuals
 
-formula = 'EEG ~ 1 + fac + (1 | pp1)'; % RE will be removed
+% formula = 'EEG ~ 1 + fac + (1 | pp1)'; % RE will be removed
 
-pp1 = nominal(dataTab.pp1); % same as categorical
-fac = dataTab.fac; % in tutorial, this was categorical too, though they had only 2 levels,
+% 
+% pp1 = nominal(dataTab.pp1); % same as categorical
+% fac = dataTab.fac; % in tutorial, this was categorical too, though they had only 2 levels,
+
+% run one regression now, to Extract design matrix X
+% EEG = double(squeeze(dvMat(:,1,1)));
+% EEG = table(EEG, fac, pp1);
+dataTab.EEG = double(squeeze(dvMat(:,1,1))); 
+m1 = fitlme(dataTab, formula);
+X = designMatrix(m1);
+nFE = size(X,2); % number of fixed effects
+df = m1.DFE; % degrees of freedom for later
+
+colNames = m1.Formula.PredictorNames; % get names to keep
+eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames])); % remove other columns for parfor
 
 fprintf('\nBuilding marginal effects, removing random-effects with formula:\n %s', formula );
-mEEG = nan(size(dvMat));
+mEEG = NaN(size(dvMat));
 for iCh = 1:nCh
     parfor iT = 1:nT
-        EEG = dvMat(:,iT,iCh);
-        EEG = table(EEG, fac, pp1);
+        eegTab1 = eegTab; % copy
+        eegTab1.EEG = dvMat(: ,iT,iCh); % overwrite EEG
 
-        m = fitlme(EEG, formula); % fit it
+        m = fitlme(eegTab1, formula); % fit it
 
         mEEG(:,iT,iCh) = fitted(m,'Conditional',0) + residuals(m); % Extract marginal EEG = FE + residuals
     end
 end
 
-% Extract design matrix X
-EEG = double(squeeze(dvMat(:,1,1)));
-EEG = table(EEG, fac, pp1);
-m = fitlme(EEG, formula);
 
-X = designMatrix(m);
-nFE = size(X,2);
 
 %% get 'true' FE effects from this marginal data
 
@@ -107,7 +145,7 @@ fprintf('\nRunning regressions on marginals');
 [t_obs, betas, se] = deal(NaN(nFE, nT, nCh));
 for iCh = 1:nCh
     parfor iT = 1:nT
-        EEG = mEEG(:,iT,iCh);
+        EEG = mEEG(:,iT,iCh); % copy
         [t_obs(:,iT,iCh), betas(:,iT,iCh), se(:,iT,iCh)] = lmeEEG_regress(EEG, X)
     end
 end
@@ -115,10 +153,12 @@ end
 
 %% permutation test
 
-% this only returns unique ones, so if doing aggregate, it gets stuck
-[rowPerms] = lmeEEG_permutations(pp1,nPerms); % nperms within-subjects permutations of X
+% this only returns unique ones, so if few trials per person it can get
+% stuck
+fprintf('\nCreating row permutations');
+[rowPerms] = lmeEEG_permutations(dataTab.pp1, nPerms); % nperms within-subjects permutations of X
 
-fprintf('\nRunning %d permutations:', nPerms);
+fprintf('\nRunning %d permutations: ', nPerms);
 t_perms = NaN(nFE,nT,nCh,nPerms); % Initialize t-map
 for iP = 1:nPerms
     if mod(iP,50)==0; fprintf('%d, ', iP); end
@@ -126,7 +166,7 @@ for iP = 1:nPerms
     XX = X(rowPerms(:,iP),:); % get indices for this perm
     for iCh = 1:nCh
         parfor iT = 1:nT
-            EEG = squeeze(mEEG(:,iT,iCh));
+            EEG = squeeze(mEEG(:,iT,iCh)); % copy 
             [t_perms(:,iT,iCh,iP)] = lmeEEG_regress(EEG, XX);
         end
     end
@@ -136,7 +176,6 @@ end
 %% findclust
 
 fprintf('\nFinding clusters');
-df = m.DFE; % degrees of freedom
 
 corrP = NaN(nFE, nT, nCh);
 for i = 1:nFE
