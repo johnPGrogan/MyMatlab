@@ -27,12 +27,12 @@ function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behT
 %     and fixed-effects either just '1 + fac' if not using behTab, or
 %     variables in behTab if that is given. default is 'EEG ~ 1 + fac + (1 | pp1)'
 %   nPerms = number of permutations to run
-%   chan_hood = if 1 channel given, is set to false, otherwise should be:
-%     chan_hood = spatial_neighbors(eeg.chanlocs, 0.61, []);
 %   tail = [-1, 0, or 1], the tail of the distribution/test to use. -1 is
 %       the lower tail (alt hypothesis that the effect is below the null),
 %       +1 is the upper tail (e.g. effect > 0), and 0 is two-tailed (i.e.
 %       that there is a difference)
+%   chan_hood = if 1 channel given, is set to false, otherwise should be:
+%     chan_hood = spatial_neighbors(eeg.chanlocs, 0.61, []);
 % 
 % Outputs:
 %   corrP = cluster-corrected p-values [nCoeff, nTimes] (1st coeff is intercept)
@@ -115,41 +115,7 @@ X = designMatrix(m1);
 nFE = size(X,2); % number of fixed effects
 df = m1.DFE; % degrees of freedom for later
 
-% colNames = m1.Formula.PredictorNames; % get names to keep
-% eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames])); % remove other columns for parfor
-
-
-% % formula = 'EEG ~ 1 + fac + (1 | pp1)'; % RE will be removed
-% 
-% % 
-% % pp1 = nominal(dataTab.pp1); % same as categorical
-% % fac = dataTab.fac; % in tutorial, this was categorical too, though they had only 2 levels,
-% 
-% % run one regression now, to Extract design matrix X
-% % EEG = double(squeeze(dvMat(:,1,1)));
-% % EEG = table(EEG, fac, pp1);
-% dataTab.EEG = double(squeeze(dvMat(:,1,1))); 
-% m1 = fitlme(dataTab, formula);
-% X = designMatrix(m1);
-% nFE = size(X,2); % number of fixed effects
-% df = m1.DFE; % degrees of freedom for later
-% 
-% colNames = m1.Formula.PredictorNames; % get names to keep
-% eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames])); % remove other columns for parfor
-% 
-% fprintf('\nBuilding marginal effects, removing random-effects with formula:\n %s', formula );
-% mEEG = NaN(size(dvMat));
-% for iCh = 1:nCh
-%     parfor iT = 1:nT
-%         eegTab1 = eegTab; % copy
-%         eegTab1.EEG = dvMat(: ,iT,iCh); % overwrite EEG
-% 
-%         m = fitlme(eegTab1, formula); % fit it
-% 
-%         mEEG(:,iT,iCh) = fitted(m,'Conditional',0) + residuals(m); % Extract marginal EEG = FE + residuals
-%     end
-% end
-
+clear dataTab; % reduce memory
 
 
 %% get 'true' FE effects from this marginal data
@@ -159,10 +125,6 @@ fprintf('\nRunning regressions on marginals');
 parfor iCh = 1:nCh
     EEG = mEEG(:,:,iCh); % copy
     [t_obs(:,:,iCh), betas(:,:,iCh), se(:,:,iCh)] = lmeEEG_regress(EEG, X)
-%     parfor iT = 1:nT
-%         EEG = mEEG(:,iT,iCh); % copy
-%         [t_obs(:,iT,iCh), betas(:,iT,iCh), se(:,iT,iCh)] = lmeEEG_regress(EEG, X)
-%     end
 end
 
 
@@ -171,23 +133,19 @@ end
 % this only returns unique ones, so if few trials per person it can get
 % stuck
 fprintf('\nCreating row permutations');
-[rowPerms] = lmeEEG_permutations(dataTab.pp1, nPerms); % nperms within-subjects permutations of X
+[rowPerms] = lmeEEG_permutations_repeats(m1.Variables.pp1, nPerms); % nperms within-subjects permutations of X
+% this version allows non-unique permutations within a person, but will
+% still given unique permutations across entire dataset if a lot of trials
 
 fprintf('\nRunning %d permutations: ', nPerms);
 t_perms = NaN(nFE,nT,nCh,nPerms); % Initialize t-map
 parfor iP = 1:nPerms
     XX = X(rowPerms(:,iP),:); % get indices for this perm
-    if mod(iP,50)==0; disp(iP); end % fprintf does not get output within parfor, only at end, so use disp
+    if mod(iP,nPerms/10)==0; disp(iP); end % fprintf does not get output within parfor, only at end, so use disp
         
     for iCh = 1:nCh
-%         EEG = mEEG(:,:,iCh); % copy
-
-    
+%         EEG = mEEG(:,:,iCh); % copy   
         [t_perms(:,:,iCh,iP)] = lmeEEG_regress(mEEG(:,:,iCh), XX); % this works across row of samples now
-%         for iT = 1:nT
-%             EEG = squeeze(mEEG(:,iT,iCh)); % copy 
-%             [t_perms(:,iT,iCh,iP)] = lmeEEG_regress(EEG, XX);
-%         end
     end
 end
 
