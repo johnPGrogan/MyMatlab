@@ -1,5 +1,5 @@
-function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, nPerms, tail, behTab, formula)
-% function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, nPerms, tail, behTab, formula)
+function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
+% function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
 % 
 % Call lmeEEG pipeline on one-channel's data - quicker way to do
 % mixed-effects permutation testing, by first regressing out random
@@ -21,16 +21,18 @@ function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, nPer
 %           1. matrix of size [nPP, nTimes, nLevels, nTr] (1 channel only), OR
 %           2. matrix of size [nPP*nTr, nTimes, nChannels] - in which case,
 %              you must pass in behTab too!!
-%   nPerms = number of permutations to run
-%   tail = [-1, 0, or 1], the tail of the distribution/test to use. -1 is
-%       the lower tail (alt hypothesis that the effect is below the null),
-%       +1 is the upper tail (e.g. effect > 0), and 0 is two-tailed (i.e.
-%       that there is a difference)
 %   behTab = [OPTIONAL] table with behavioural data and 'pp1' in, if passed
 %       in, assumes that eegMatrix is a matrix or table of same height
 %   formula = [OPTIONAL] regression formula with Random Effects (DV must be 'EEG'),
 %     and fixed-effects either just '1 + fac' if not using behTab, or
 %     variables in behTab if that is given. default is 'EEG ~ 1 + fac + (1 | pp1)'
+%   nPerms = number of permutations to run
+%   chan_hood = if 1 channel given, is set to false, otherwise should be:
+%     chan_hood = spatial_neighbors(eeg.chanlocs, 0.61, []);
+%   tail = [-1, 0, or 1], the tail of the distribution/test to use. -1 is
+%       the lower tail (alt hypothesis that the effect is below the null),
+%       +1 is the upper tail (e.g. effect > 0), and 0 is two-tailed (i.e.
+%       that there is a difference)
 % 
 % Outputs:
 %   corrP = cluster-corrected p-values [nCoeff, nTimes] (1st coeff is intercept)
@@ -54,7 +56,9 @@ if ~exist('formula', 'var')
     formula = 'EEG ~ 1 + fac + (1 | pp1)'; % RE will be removed
 end
 
-chan_hood = false; % one channel
+if ~exist('chan_hood','var')
+    chan_hood = false; % one channel
+end
 
 %% can pass in eeg table? and beh table? and then FE + RE?
 if exist('behTab','var')
@@ -64,7 +68,7 @@ if exist('behTab','var')
     dataTab = behTab; % copy [nPP*nTr, nbehvars]
     dvMat = eegMatrix; % copy [nPP*nTr, nTimes, nChans]
 
-    nNonNan = sum(~isnan(eegMatrix(:,1,1))); % non-nan trials for 1st timepoint
+    nNonNan = sum(~isnan(eegMatrix(:,1,1,1))); % non-nan trials for 1st timepoint
 
 else % no behTab, so eegMatrix is [nPP, nT, nL, nTr] for 1 channel
     %% set up matrix + table
@@ -90,7 +94,7 @@ assert(size(dataTab,1) == size(dvMat,1), 'dataTab and dimension mismatch');
 %% need to make sure there are no NaNs
 
 % remove all-nan rows?
-toRemove = all(isnan(dvMat),2) | all(isnan(table2array(dataTab)),2);
+toRemove = all(isnan(dvMat),[2 3]) | all(isnan(table2array(dataTab)),2);
 
 assert(sum(~toRemove) == nNonNan, 'NaN mismatch');
 
@@ -171,15 +175,15 @@ fprintf('\nCreating row permutations');
 
 fprintf('\nRunning %d permutations: ', nPerms);
 t_perms = NaN(nFE,nT,nCh,nPerms); % Initialize t-map
-for iCh = 1:nCh
-    EEG = mEEG(:,:,iCh); % copy
-    parfor iP = 1:nPerms
-        XX = X(rowPerms(:,iP),:); % get indices for this perm
-        if mod(iP,50)==0; disp(iP); end % fprintf does not get output within parfor, only at end, so use disp
+parfor iP = 1:nPerms
+    XX = X(rowPerms(:,iP),:); % get indices for this perm
+    if mod(iP,50)==0; disp(iP); end % fprintf does not get output within parfor, only at end, so use disp
         
+    for iCh = 1:nCh
+%         EEG = mEEG(:,:,iCh); % copy
 
     
-        [t_perms(:,:,iCh,iP)] = lmeEEG_regress(EEG, XX); % this works across row of samples now
+        [t_perms(:,:,iCh,iP)] = lmeEEG_regress(mEEG(:,:,iCh), XX); % this works across row of samples now
 %         for iT = 1:nT
 %             EEG = squeeze(mEEG(:,iT,iCh)); % copy 
 %             [t_perms(:,iT,iCh,iP)] = lmeEEG_regress(EEG, XX);
@@ -194,7 +198,7 @@ fprintf('\nFinding clusters');
 corrP = NaN(nFE, nT, nCh);
 for i = 1:nFE
     % make inputs [nT nCh (nPerms)]
-    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i,:,:),1), shiftdim(t_perms(i,:,:,:),1), chan_hood, tail, df)'; %[times chans]
+    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i,:,:),1), shiftdim(t_perms(i,:,:,:),1), chan_hood, tail, df); %[times chans]
 end
 
 
