@@ -61,7 +61,7 @@ if ~exist('chan_hood','var')
 end
 
 %% can pass in eeg table? and beh table? and then FE + RE?
-if exist('behTab','var')
+if exist('behTab','var') && ~isempty(behTab)
     % if this is passed in, eegMatrix should be [nPP*nL*nTr, nT, nCh] matrix
     % and behTab should be [nPP*nTr, nBehVars] table
 
@@ -105,8 +105,8 @@ v = dataTab.Properties.VariableNames; % store
 dataTab = varfun(@nanzscore, dataTab); % zscore each column after removing NaNs
 dataTab.Properties.VariableNames = v; % replace names
 
-[~, nT, nCh] = size(dvMat);
-fprintf('\n%d Time-points, and %d Channels', nT, nCh)
+[nRows, nT, nCh] = size(dvMat);
+fprintf('\n%d Rows, %d Time-points, and %d Channels', nRows, nT, nCh)
 
 %% regress out RE, leaving just fitted FE + residuals
 
