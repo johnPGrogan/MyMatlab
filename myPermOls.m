@@ -42,7 +42,7 @@ for iT = 1:nTests
         disp('multiple level factor: '); disp(levelsToTest{iT});
         % passing multiple level factor in
 
-        d = reshape(permute(dataByFac,[1,3,2]),nPP*nL,nT); % make [nPP*nL, nT]
+        d = reshape(permute(dataByFac(:,:,levelsToTest{iT}),[1,3,2]),nPP*nL,nT); % make [nPP*nL, nT]
         DES = [flat(ones(nPP,nL))  zscore(flat(repmat(1:nL,[nPP,1]))) ]; % design matrix [1, factor]
         group = repmat( (1:nPP)',nL,1); % pp index, will permute factor within pps
         contrasts = [0 1]; % ignore pp, just test factor
@@ -57,13 +57,13 @@ for iT = 1:nTests
         [~, p(iT,:)] = permutationOLS(d, [],[],[], permArgs{:}); 
 
 
-    elseif nL==1 % already a difference wave
+    else % assuming already a difference wave
         disp('assuming a difference wave'); disp(levelsToTest{iT});
-        d = cppByFactor;
+        d = dataByFac(:,:,levelsToTest{iT});
         [~, p(iT,:)] = permutationOLS(d, [],[],[], permArgs{:}); 
 
-    else
-        error('levelsToTest is wrong');
+%     else
+%         error('levelsToTest is wrong');
     end
 end
 
