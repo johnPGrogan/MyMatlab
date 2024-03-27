@@ -1,5 +1,5 @@
-function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
-% function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
+function [corrP, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
+% function [corrP, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
 % 
 % Call lmeEEG pipeline on one-channel's data - quicker way to do
 % mixed-effects permutation testing, by first regressing out random
@@ -34,10 +34,8 @@ function [corrP, t_perms, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behT
 %   chan_hood = if 1 channel given, is set to false, otherwise should be:
 %     chan_hood = spatial_neighbors(eeg.chanlocs, 0.61, []);
 % 
-% Outputs:
-%   corrP = cluster-corrected p-values [nCoeff, nTimes] (1st coeff is intercept)
-%   t_perms = [nCoeff, nTimes, 1, nPerms] t-values for each coefficient at
-%     each permutation
+% Outputs (no longer returns intercept row):
+%   corrP = cluster-corrected p-values [nCoeff, nTimes]
 %   t_obs = [nCoeff nTimes] "true" t-values from the 'marginal effects
 %     matrix', i.e., with the RandomEffects regressed out
 %   betas = [nCoeff, nTimes] "true" beta coeffs from marginal matrix
@@ -53,7 +51,7 @@ if ~exist('tail','var')
 end
 
 if ~exist('formula', 'var')
-    formula = 'EEG ~ 1 + fac + (1 | pp1)'; % RE will be removed
+    formula = 'EEG ~ 1 + fac + (1 + fac| pp1)'; % RE will be removed
 end
 
 if ~exist('chan_hood','var')
@@ -153,10 +151,15 @@ end
 
 fprintf('\nFinding clusters');
 
-corrP = NaN(nFE, nT, nCh);
-for i = 1:nFE
+corrP = NaN(nFE-1, nT, nCh);
+for i = 1:nFE-1 % skip intercept
     % make inputs [nT nCh (nPerms)]
-    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i,:,:),1), shiftdim(t_perms(i,:,:,:),1), chan_hood, tail, df); %[times chans]
+    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i+1,:,:),1), shiftdim(t_perms(i+1,:,:,:),1), chan_hood, tail, df); %[times chans]
 end
 
+%% remove intercepts from returned values
 
+t_perms(1,:,:,:) = [];
+t_obs(1,:,:) = [];
+betas(1,:,:) = [];
+se(1,:,:) = [];
