@@ -43,18 +43,18 @@ function [corrP, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behTab, formu
 %   df = degrees of freedom 
 %  
 
-if ~exist('nPerms','var')
+if ~exist('nPerms','var') || isempty(nPerms)
     nPerms = 1000;
 end
-if ~exist('tail','var')
+if ~exist('tail','var') || isempty(tail)
     tail = 0; % two-tailed
 end
 
-if ~exist('formula', 'var')
+if ~exist('formula', 'var') || isempty(formula)
     formula = 'EEG ~ 1 + fac + (1 + fac| pp1)'; % RE will be removed
 end
 
-if ~exist('chan_hood','var')
+if ~exist('chan_hood','var') || isempty(tail)
     chan_hood = false; % one channel
 end
 
@@ -98,6 +98,24 @@ assert(sum(~toRemove) == nNonNan, 'NaN mismatch');
 
 dataTab(toRemove,:) = [];
 dvMat(toRemove,:,:) = [];
+
+if any(isnan(table2array(dataTab)),'all')
+    % run one regression to get predictor names, and then discard rows with
+    % nans in those
+    dataTab1 = dataTab;
+    dataTab1.EEG = dvMat(:,1,1);
+    m = fitglme(dataTab1, formula);
+    colNames = m.Formula.PredictorNames; % get names to keep
+    dataTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames])); % remove other columns for parfor
+
+    toRemove = any(isnan(table2array(dataTab)),2); % remove any nan rows from this
+    dataTab(toRemove,:) = [];
+    dvMat(toRemove,:,:) = [];
+
+    clearvars dataTab1 m colNames;
+end
+
+%% zscore predictors after removals
 
 v = dataTab.Properties.VariableNames; % store
 dataTab = varfun(@nanzscore, dataTab); % zscore each column after removing NaNs
@@ -159,7 +177,7 @@ end
 
 %% remove intercepts from returned values
 
-t_perms(1,:,:,:) = [];
+% t_perms(1,:,:,:) = [];
 t_obs(1,:,:) = [];
 betas(1,:,:) = [];
 se(1,:,:) = [];
