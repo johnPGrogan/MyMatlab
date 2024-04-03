@@ -3,7 +3,11 @@ function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, f
 % 
 % lmeEEG for categorical predictors - marginal EEG is done the same, but
 % now we get a t-stat for each categorical level, and can also get a F-stat
-% for the overall effect (stored as additional final row in corrP and t_obs)
+% for the overall effect (stored as additional final row in corrP and
+% t_obs). Since F-stats are always positive, and FindClusters only looks
+% for negative t-stats (assumes symmetrical), we will invert all F-stats
+% and only do a one-tailed comparison on the F-distribution.
+% 
 % Call lmeEEG pipeline on one-channel's data - quicker way to do
 % mixed-effects permutation testing, by first regressing out random
 % effects.
@@ -33,7 +37,10 @@ function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, f
 %   tail = [-1, 0, or 1], the tail of the distribution/test to use. -1 is
 %       the lower tail (alt hypothesis that the effect is below the null),
 %       +1 is the upper tail (e.g. effect > 0), and 0 is two-tailed (i.e.
-%       that there is a difference)
+%       that there is a difference). F-stat permutation for overall effect
+%       across categorical levels must be one-tailed as F-stats are
+%       positive, so that will be forced, but other predictors will use
+%       tail.
 %   chan_hood = if 1 channel given, is set to false, otherwise should be:
 %     chan_hood = spatial_neighbors(eeg.chanlocs, 0.61, []);
 % 
@@ -144,7 +151,7 @@ clear dataTab; % reduce memory
 
 fprintf('\nRunning regressions on marginals');
 [t_obs, betas, se] = deal(NaN(nFE+1, nT, nCh));
-for iCh = 1:nCh
+parfor iCh = 1:nCh
     EEG = mEEG(:,:,iCh); % copy
     [t_obs(:,:,iCh), betas(:,:,iCh), se(:,:,iCh)] = lmeEEG_regress_withF(EEG, X);
 end
@@ -161,7 +168,7 @@ fprintf('\nCreating row permutations');
 
 fprintf('\nRunning %d permutations: ', nPerms);
 t_perms = NaN(nFE+1,nT,nCh,nPerms); % Initialize t-map
-for iP = 1:nPerms
+parfor iP = 1:nPerms
     XX = X(rowPerms(:,iP),:); % get indices for this perm
     if mod(iP,nPerms/10)==0; disp(iP); end % fprintf does not get output within parfor, only at end, so use disp
         
@@ -172,14 +179,27 @@ for iP = 1:nPerms
 end
 
 %% findclust
+% F-stats are always positive, so need to force it to look for one-tailed
+% p-values?
+tails = repmat(tail, nFE+1, 1); % keep given tails for t-tests
+tails(1) = NaN; % skip intercept
+tails(end) = -1; % force to negative one-tailed for F-test (See below)
+% FindClustersLikeGND only looks for negative t-values, as it assumes a
+% symmetrical t-stat distribution, so we need to invert the F-stats and do
+% a one-tailed negative test
+t_perms(end,:,:,:) = - t_perms(end,:,:,:); % invert permuted Fs
+t_obs(end,:,:) = - t_obs(end,:,:); % and true F
 
 fprintf('\nFinding clusters');
 
-corrP = NaN(nFE-1 + 1, nT, nCh);
+corrP = NaN(nFE, nT, nCh); % will skip intercept
 for i = 1:nFE % skip intercept
     % make inputs [nT nCh (nPerms)]
-    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i+1,:,:),1), shiftdim(t_perms(i+1,:,:,:),1), chan_hood, tail, df); %[times chans]
+    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i+1,:,:),1), shiftdim(t_perms(i+1,:,:,:),1), chan_hood, tails(i+1), df); %[times chans]
 end
+
+% undo negatives
+t_obs(end,:,:) = - t_obs(end,:,:); % and true F
 
 %% remove intercepts from returned values
 
