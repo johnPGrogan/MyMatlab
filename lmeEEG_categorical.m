@@ -1,12 +1,14 @@
-function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
-% function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
+function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, formula, nPerms, tail, chan_hood, categories, contrasts)
+% function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, formula, nPerms, tail, chan_hood, categories, contrasts)
 % 
 % lmeEEG for categorical predictors - marginal EEG is done the same, but
 % now we get a t-stat for each categorical level, and can also get a F-stat
 % for the overall effect (stored as additional final row in corrP and
 % t_obs). Since F-stats are always positive, and FindClusters only looks
 % for negative t-stats (assumes symmetrical), we will invert all F-stats
-% and only do a one-tailed comparison on the F-distribution.
+% and only do a one-tailed comparison on the F-distribution. Can pass in
+% cell array of contrasts to test also, which will be permuted with F-tests
+% too
 % 
 % Call lmeEEG pipeline on one-channel's data - quicker way to do
 % mixed-effects permutation testing, by first regressing out random
@@ -29,7 +31,9 @@ function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, f
 %           2. matrix of size [nPP*nTr, nTimes, nChannels] - in which case,
 %              you must pass in behTab too!!
 %   behTab = [OPTIONAL] table with behavioural data and 'pp1' in, if passed
-%       in, assumes that eegMatrix is a matrix or table of same height
+%       in, assumes that eegMatrix is a matrix or table of same height.
+%       factor used in formula should be categorical with reference level
+%       set
 %   formula = [OPTIONAL] regression formula with Random Effects (DV must be 'EEG'),
 %     and fixed-effects either just '1 + fac' if not using behTab, or
 %     variables in behTab if that is given. default is 'EEG ~ 1 + fac + (1 | pp1)'
@@ -43,6 +47,11 @@ function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, f
 %       tail.
 %   chan_hood = if 1 channel given, is set to false, otherwise should be:
 %     chan_hood = spatial_neighbors(eeg.chanlocs, 0.61, []);
+%   categories = if not giving behTab, then categories can be given to set
+%     the order of categories (1st one becomes reference level) to match
+%     1:nL
+%   contrasts = cell array of contrast matrices (bools), allows multiple 
+%     rows, 1 column per, FE term in model, 
 % 
 % Outputs (no longer returns intercept row):
 %   corrP = cluster-corrected p-values [nCoeff, nTimes]
@@ -66,6 +75,15 @@ end
 
 if ~exist('chan_hood','var') || isempty(tail)
     chan_hood = false; % one channel
+end
+
+if ~exist('contrasts','var') || isempty(contrasts)
+    contrasts = {};
+    nC = 1; % will test overall main effect by default
+else
+    nC = length(contrasts);
+    fprintf('\nTesting following %d contrasts:', nC);
+    contrasts{:}
 end
 
 %% can pass in eeg table? and beh table? and then FE + RE?
@@ -92,6 +110,10 @@ else % no behTab, so eegMatrix is [nPP, nT, nL, nTr] for 1 channel
     
     dataTab = array2table(dataTab, 'VariableNames', {'pp1','fac','trial'}); % trial is unused
 
+    % make fac categorical
+    warning('making fac column into a categorical, with 1st category as reference');
+    dataTab.fac = categorical(dataTab.fac);
+
     nNonNan = sum(~isnan(eegMatrix(:,1,:,:)),'all'); % non-nan trials for 1st timepoint
 end
 
@@ -103,6 +125,12 @@ assert(size(dataTab,1) == size(dvMat,1), 'dataTab and dimension mismatch');
 
 catCol = table2array(varfun(@iscategorical, dataTab));
 
+if any(catCol)
+    fprintf('\ncategorical predictor is: %s\n', dataTab.Properties.VariableNames{catCol});
+else
+    error('not categorical predictor');
+end
+
 % categorical can't be nan, or be table2array, skip for now
 % remove all-nan rows?
 toRemove = all(isnan(dvMat),[2 3]) | all(isnan(table2array(dataTab(:,~catCol))),2);
@@ -111,6 +139,7 @@ assert(sum(~toRemove) == nNonNan, 'NaN mismatch');
 
 dataTab(toRemove,:) = [];
 dvMat(toRemove,:,:) = [];
+
 
 % if any(isnan(table2array(dataTab)),'all')
 %     % run one regression to get predictor names, and then discard rows with
@@ -134,6 +163,15 @@ v = dataTab.Properties.VariableNames; % store
 dataTab(:, ~catCol) = varfun(@nanzscore, dataTab(:,~catCol)); % zscore each column after removing NaNs
 dataTab.Properties.VariableNames = v; % replace names
 
+%% set categorical order, 1st is refence level
+
+if exist('categories','var') && ~isempty(categories)
+    fprintf('\n Re-ordering categories');
+    dataTab.(v{catCol}) = reordercats(dataTab.(v{catCol}), categories);
+end
+
+%% 
+
 [nRows, nT, nCh] = size(dvMat);
 fprintf('\n%d Rows, %d Time-points, and %d Channels', nRows, nT, nCh)
 
@@ -142,7 +180,8 @@ fprintf('\n%d Rows, %d Time-points, and %d Channels', nRows, nT, nCh)
 [mEEG, m1] = regressOutRE(dataTab, dvMat, formula);
 X = designMatrix(m1);
 nFE = size(X,2); % number of fixed effects + 1 for f-stat
-df = m1.DFE; % degrees of freedom for later
+
+df = [nFE-1,  m1.DFE]; % degrees of freedom for later [effect, resid]
 
 clear dataTab; % reduce memory
 
@@ -150,10 +189,10 @@ clear dataTab; % reduce memory
 %% get 'true' FE effects from this marginal data
 
 fprintf('\nRunning regressions on marginals');
-[t_obs, betas, se] = deal(NaN(nFE+1, nT, nCh));
+[t_obs, betas, se] = deal(NaN(nFE+nC, nT, nCh));
 parfor iCh = 1:nCh
     EEG = mEEG(:,:,iCh); % copy
-    [t_obs(:,:,iCh), betas(:,:,iCh), se(:,:,iCh)] = lmeEEG_regress_withF(EEG, X);
+    [t_obs(:,:,iCh), betas(:,:,iCh), se(:,:,iCh)] = lmeEEG_regress_withF(EEG, X, contrasts);
 end
 
 
@@ -167,40 +206,35 @@ fprintf('\nCreating row permutations');
 % still given unique permutations across entire dataset if a lot of trials
 
 fprintf('\nRunning %d permutations: ', nPerms);
-t_perms = NaN(nFE+1,nT,nCh,nPerms); % Initialize t-map
+t_perms = NaN(nFE+nC,nT,nCh,nPerms); % Initialize t-map
 parfor iP = 1:nPerms
     XX = X(rowPerms(:,iP),:); % get indices for this perm
     if mod(iP,nPerms/10)==0; disp(iP); end % fprintf does not get output within parfor, only at end, so use disp
         
     for iCh = 1:nCh
 %         EEG = mEEG(:,:,iCh); % copy   
-        [t_perms(:,:,iCh,iP)] = lmeEEG_regress_withF(mEEG(:,:,iCh), XX); % this works across row of samples now
+        [t_perms(:,:,iCh,iP)] = lmeEEG_regress_withF(mEEG(:,:,iCh), XX, contrasts); % this works across row of samples now
     end
 end
 
 %% findclust
-% F-stats are always positive, so need to force it to look for one-tailed
-% p-values?
-tails = repmat(tail, nFE+1, 1); % keep given tails for t-tests
-tails(1) = NaN; % skip intercept
-tails(end) = -1; % force to negative one-tailed for F-test (See below)
-% FindClustersLikeGND only looks for negative t-values, as it assumes a
-% symmetrical t-stat distribution, so we need to invert the F-stats and do
-% a one-tailed negative test
-t_perms(end,:,:,:) = - t_perms(end,:,:,:); % invert permuted Fs
-t_obs(end,:,:) = - t_obs(end,:,:); % and true F
+% for t-statistics
 
-fprintf('\nFinding clusters');
+fprintf('\nFinding clusters: ');
 
-corrP = NaN(nFE, nT, nCh); % will skip intercept
-for i = 1:nFE % skip intercept
+n = nFE-1; % ignore intercept
+corrP = NaN(n+nC, nT, nCh); % will skip intercept
+for i = 1:n % skip intercept
     % make inputs [nT nCh (nPerms)]
-    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i+1,:,:),1), shiftdim(t_perms(i+1,:,:,:),1), chan_hood, tails(i+1), df); %[times chans]
+    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i+1,:,:),1), shiftdim(t_perms(i+1,:,:,:),1), chan_hood, tail, df(2)); %[times chans]
 end
 
-% undo negatives
-t_obs(end,:,:) = - t_obs(end,:,:); % and true F
+%% find cluster for F-stats
+% as F >=0, need to use different version of FindClusters for each contrast
 
+for i = 1:nC
+    corrP(i+n,:,:) = FindClustersLikeGND_F(shiftdim(t_obs(i+1+n,:,:),1), shiftdim(t_perms(i+1+n,:,:,:),1), chan_hood, 1, df); %[times chans]
+end
 %% remove intercepts from returned values
 
 % t_perms(1,:,:,:) = [];
