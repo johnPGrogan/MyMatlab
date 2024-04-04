@@ -27,7 +27,10 @@ function corrP = lmeEEG_categorical_pbar(eegMatrix, behTab, formula, nPerms, tai
 
 if ~exist('times','var') || isempty(times)
     warning('no times are given, so no pbars will be plotted')
+else
+    assert(size(eegMatrix,2) == length(times), 'times and data have different lengths');
 end
+
 
 % set default inputs as empty, will use defaults in lmeEEG_categorical
 if ~exist('behTab','var') || isempty(behTab); behTab = []; end
