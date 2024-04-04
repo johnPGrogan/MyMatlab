@@ -83,10 +83,11 @@ if ~exist('contrasts','var') || isempty(contrasts)
     nC = 0; % 
 else
     nC = length(contrasts);
-    if nC==1 && ischar(contrasts{1}) % if 1, can be just {'overall'} 
+    if ischar(contrasts{1}) % if 1, can be just {'overall'} 
         assert(strcmpi(contrasts{1}, 'overall'), "if contrasts is string, must be {'overall'}");
-    else % otherwise must be [0 1 1] format
-        assert(all(cellfun(@islogical, contrasts) | cellfun(@isnumeric, contrasts)),...
+    else % otherwise must be 'overall' or [0 1 1] format
+        assert(all(cellfun(@islogical, contrasts) | cellfun(@isnumeric, contrasts) | ...
+               cellfun(@(x) ischar(x) && strcmpi(x, 'overall'), contrasts)   ),...
             "multiple contrasts must be cell array of {[0 1 0]; [0 0 1]} format for multiples")
     end
 
@@ -197,7 +198,17 @@ df = [nFE-1,  m1.DFE]; % degrees of freedom for later [effect, resid]
 
 clear dataTab; % reduce memory
 
+%% if contrasts has 'overall', make that here
+if nC && ischar(contrasts{1}) && strcmpi(contrasts{1}, 'overall')
+    % make row per level, test all levels at once
+    % equiv to coefTest(model, [0 1 0; 0 0 1]);
 
+    I = eye(nFE);
+    termkcols = true(1, nFE); % which columns of X to use?
+    termkcols(1) = 0; % igmore intercept
+    L = I(termkcols,:);
+    contrasts{1} = L;
+end   
 %% get 'true' FE effects from this marginal data
 
 fprintf('\nRunning regressions on marginals');
