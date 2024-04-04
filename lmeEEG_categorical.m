@@ -51,7 +51,8 @@ function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, f
 %     the order of categories (1st one becomes reference level) to match
 %     1:nL
 %   contrasts = cell array of contrast matrices (bools), allows multiple 
-%     rows, 1 column per, FE term in model, 
+%     rows, 1 column per, FE term in model. default is none, or can pass in
+%     {'overall'} to just test that.
 % 
 % Outputs (no longer returns intercept row):
 %   corrP = cluster-corrected p-values [nCoeff, nTimes]
@@ -78,10 +79,17 @@ if ~exist('chan_hood','var') || isempty(tail)
 end
 
 if ~exist('contrasts','var') || isempty(contrasts)
-    contrasts = {};
-    nC = 1; % will test overall main effect by default
+    contrasts = {}; % default is none, not even overall
+    nC = 0; % 
 else
     nC = length(contrasts);
+    if nC==1 && ischar(contrasts{1}) % if 1, can be just {'overall'} 
+        assert(strcmpi(contrasts{1}, 'overall'), "if contrasts is string, must be {'overall'}");
+    else % otherwise must be [0 1 1] format
+        assert(all(cellfun(@islogical, contrasts) | cellfun(@isnumeric, contrasts)),...
+            "multiple contrasts must be cell array of {[0 1 0]; [0 0 1]} format for multiples")
+    end
+
     fprintf('\nTesting following %d contrasts:', nC);
     contrasts{:}
 end
