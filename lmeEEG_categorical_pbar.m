@@ -1,5 +1,5 @@
-function corrP = lmeEEG_categorical_pbar(eegMatrix, behTab, formula, nPerms, tail, chan_hood, categories, contrasts, times, colours, yVals)
-% function p = lmeEEG_categorical_pbar(eegMatrix, behTab, formula, nPerms, tail, categories, contrasts, times, colours, yVals)
+function corrP = lmeEEG_categorical_pbar(eegMatrix, behTab, formula, nPerms, tail, chan_hood, categOrder, contrasts, times, colours, yVals, pbarsToPlot)
+% function p = lmeEEG_categorical_pbar(eegMatrix, behTab, formula, nPerms, tail, categOrder, contrasts, times, colours, yVals, pbarsToPlot)
 % 
 % Wrapper function for lmeEEG_cateogircal that also does pbar plotting
 % As categorical predictor is used, will give pbar per level of category
@@ -17,6 +17,9 @@ function corrP = lmeEEG_categorical_pbar(eegMatrix, behTab, formula, nPerms, tai
 %     yVals = [n 1] vector of yValues to plot each pbar at - only significant
 %       pbars are plotted and non-sig are skipped, so yvals are used in order
 %       of significant pbars, not order of tests given. default is min(ylim)+i
+%     pbarsToPlot = indices of which pbars to plot, e.g. can just plot
+%       overall contrast, or change order (to match those in colours &
+%       yVals)
 % 
 % Outputs:
 %     p = cluster-corrected pvalues [nTests, nTimes]
@@ -32,19 +35,25 @@ if ~exist('formula','var') || isempty(formula); formula= []; end
 if ~exist('nPerms','var') || isempty(nPerms); nPerms = []; end
 if ~exist('tail','var') || isempty(tail); tail = []; end
 if ~exist('chan_hood','var') || isempty(chan_hood); chan_hood = []; end 
-if ~exist('categories','var') || isempty(categories); categories = []; end
+if ~exist('categOrder','var') || isempty(categOrder); categOrder= []; end
 if ~exist('contrasts','var') || isempty(contrasts); contrasts = {}; end 
 
 %% call lmeEEG_categorical
 
 
-corrP = lmeEEG_categorical(eegMatrix, behTab, formula, nPerms, tail, chan_hood, categories, contrasts);
+corrP = lmeEEG_categorical(eegMatrix, behTab, formula, nPerms, tail, chan_hood, categOrder, contrasts);
 
 
 %% plot pbars
 
 if exist('times','var') && ~isempty(times)
      % plot pbars
+     % only some?
+
+     if exist('pbarsToPlot','var') && ~isempty(pbarsToPlot)
+         corrPOrig = corrP; % store
+         corrP = corrP(pbarsToPlot,:); % discard or rearrange
+     end
 
     isSig = any(corrP <= .05, 2);  % only plot sig ones
     if any(isSig) % only plot if there are any
@@ -62,6 +71,10 @@ if exist('times','var') && ~isempty(times)
             hold on;
             pbar(corrP(f(iT),:), 'xVals',times, 'yVal', yVals(iT), 'plotargs',{'LineWidth',5,'Color',colours(f(iT),:)});
         end 
+    end
+
+    if exist('corrPOrig','var') % reset to orig order
+        corrP = corrPOrig;
     end
 end
 

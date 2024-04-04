@@ -1,5 +1,5 @@
-function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, formula, nPerms, tail, chan_hood, categories, contrasts)
-% function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, formula, nPerms, tail, chan_hood, categories, contrasts)
+function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, formula, nPerms, tail, chan_hood, categOrder, contrasts)
+% function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, formula, nPerms, tail, chan_hood, categOrder, contrasts)
 % 
 % lmeEEG for categorical predictors - marginal EEG is done the same, but
 % now we get a t-stat for each categorical level, and can also get a F-stat
@@ -47,7 +47,7 @@ function [corrP, t_obs, betas, se, df] = lmeEEG_categorical(eegMatrix, behTab, f
 %       tail.
 %   chan_hood = if 1 channel given, is set to false, otherwise should be:
 %     chan_hood = spatial_neighbors(eeg.chanlocs, 0.61, []);
-%   categories = if not giving behTab, then categories can be given to set
+%   categOrder = if not giving behTab, then categories can be given to set
 %     the order of categories (1st one becomes reference level) to match
 %     1:nL
 %   contrasts = cell array of contrast matrices (bools), allows multiple 
@@ -131,13 +131,12 @@ assert(size(dataTab,1) == size(dvMat,1), 'dataTab and dimension mismatch');
 
 %% need to make sure there are no NaNs
 
-catCol = table2array(varfun(@iscategorical, dataTab));
 
-if any(catCol)
-    fprintf('\ncategorical predictor is: %s\n', dataTab.Properties.VariableNames{catCol});
-else
+catCol = table2array(varfun(@iscategorical, dataTab));
+if ~any(catCol)
     error('not categorical predictor');
 end
+fprintf('\ncategorical predictor is: %s\n', dataTab.Properties.VariableNames{catCol});
 
 % categorical can't be nan, or be table2array, skip for now
 % remove all-nan rows?
@@ -173,10 +172,15 @@ dataTab.Properties.VariableNames = v; % replace names
 
 %% set categorical order, 1st is refence level
 
-if exist('categories','var') && ~isempty(categories)
+% reorder categories?
+if exist('categOrder','var') && ~isempty(categOrder)
     fprintf('\n Re-ordering categories');
-    dataTab.(v{catCol}) = reordercats(dataTab.(v{catCol}), categories);
+    dataTab.(v{catCol}) = reordercats(dataTab.(v{catCol}), categOrder);
 end
+
+fprintf('\nwith categories in order:'); % show them
+disp(categories(dataTab.(v{catCol}))');
+
 
 %% 
 
