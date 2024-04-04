@@ -96,7 +96,7 @@ end
 if exist('times','var') && ~isempty(times)
      % plot pbars
 
-    isSig = any(corrP < .05, 2);  % only plot sig ones
+    isSig = any(corrP <= .05, 2);  % only plot sig ones
     if any(isSig) % only plot if there are any
         if ~exist('yVals','var') || isempty(yVals)
             yVals = min(ylim) + (1:sum(isSig)) - 1; % default yVals

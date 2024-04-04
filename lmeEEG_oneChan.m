@@ -54,7 +54,7 @@ if ~exist('formula', 'var') || isempty(formula)
     formula = 'EEG ~ 1 + fac + (1 + fac| pp1)'; % RE will be removed
 end
 
-if ~exist('chan_hood','var') || isempty(tail)
+if ~exist('chan_hood','var') || isempty(chan_hood)
     chan_hood = false; % one channel
 end
 
@@ -122,7 +122,7 @@ dataTab = varfun(@nanzscore, dataTab); % zscore each column after removing NaNs
 dataTab.Properties.VariableNames = v; % replace names
 
 [nRows, nT, nCh] = size(dvMat);
-fprintf('\n%d Rows, %d Time-points, and %d Channels', nRows, nT, nCh)
+fprintf('\n%d Rows, %d Time-points, %d Channels, %d Permutations', nRows, nT, nCh, nPerms)
 
 %% regress out RE, leaving just fitted FE + residuals
 
