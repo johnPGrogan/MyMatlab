@@ -83,13 +83,9 @@ if ~exist('contrasts','var') || isempty(contrasts)
     nC = 0; % 
 else
     nC = length(contrasts);
-    if ischar(contrasts{1}) % if 1, can be just {'overall'} 
-        assert(strcmpi(contrasts{1}, 'overall'), "if contrasts is string, must be {'overall'}");
-    else % otherwise must be 'overall' or [0 1 1] format
-        assert(all(cellfun(@islogical, contrasts) | cellfun(@isnumeric, contrasts) | ...
-               cellfun(@(x) ischar(x) && strcmpi(x, 'overall'), contrasts)   ),...
-            "multiple contrasts must be cell array of {[0 1 0]; [0 0 1]} format for multiples")
-    end
+    assert(all(cellfun(@islogical, contrasts) | cellfun(@isnumeric, contrasts) | ...
+           cellfun(@(x) ischar(x) && strcmpi(x, 'overall'), contrasts)   ),...
+        "contrasts must be cell array of {'overall'} or {[0 1 0]; [0 0 1]} format ")
 
     fprintf('\nTesting following %d contrasts:', nC);
     contrasts{:}
@@ -199,7 +195,9 @@ df = [nFE-1,  m1.DFE]; % degrees of freedom for later [effect, resid]
 clear dataTab; % reduce memory
 
 %% if contrasts has 'overall', make that here
-if nC && ischar(contrasts{1}) && strcmpi(contrasts{1}, 'overall')
+if nC 
+    ind = cellfun(@(x) ischar(x) && strcmpi(x, 'overall'), contrasts); % can be repeats
+
     % make row per level, test all levels at once
     % equiv to coefTest(model, [0 1 0; 0 0 1]);
 
@@ -207,7 +205,10 @@ if nC && ischar(contrasts{1}) && strcmpi(contrasts{1}, 'overall')
     termkcols = true(1, nFE); % which columns of X to use?
     termkcols(1) = 0; % igmore intercept
     L = I(termkcols,:);
-    contrasts{1} = L;
+    contrasts{ind} = L;
+
+    fprintf('\nConverting "overall" contrast into: \n')
+    disp(contrasts{ind})
 end   
 %% get 'true' FE effects from this marginal data
 
