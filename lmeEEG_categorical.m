@@ -241,27 +241,36 @@ parfor iP = 1:nPerms
     end
 end
 
+%% remove intercept, unless only one given
+
+if m1.NumCoefficients > 1
+    isInt = strcmp(m1.CoefficientNames, '(Intercept)'); % remove later, allows ' EEG ~ -1 + fac' to be run
+    if any(isInt)
+        fprintf('\nRemoving intercept from cluster-finding and outputs');
+        t_perms(isInt,:,:,:) = [];
+        t_obs(isInt,:,:) = [];
+        betas(isInt,:,:) = [];
+        se(isInt,:,:) = [];
+
+        nFE = size(t_obs,1); % update
+    end
+end
+
 %% findclust
 % for t-statistics
 
 fprintf('\nFinding clusters: ');
 
-n = nFE-1; % ignore intercept
-corrP = NaN(n+nC, nT, nCh); % will skip intercept
-for i = 1:n % skip intercept
+corrP = NaN(nFE+nC, nT, nCh); % will skip intercept
+for i = 1:nFE % skip intercept
     % make inputs [nT nCh (nPerms)]
-    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i+1,:,:),1), shiftdim(t_perms(i+1,:,:,:),1), chan_hood, tail, df(2)); %[times chans]
+    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i,:,:),1), shiftdim(t_perms(i,:,:,:),1), chan_hood, tail, df(2)); %[times chans]
 end
 
 %% find cluster for F-stats
 % as F >=0, need to use different version of FindClusters for each contrast
 
 for i = 1:nC
-    corrP(i+n,:,:) = FindClustersLikeGND_F(shiftdim(t_obs(i+1+n,:,:),1), shiftdim(t_perms(i+1+n,:,:,:),1), chan_hood, 1, df); %[times chans]
+    corrP(i+nFE,:,:) = FindClustersLikeGND_F(shiftdim(t_obs(i+nFE,:,:),1), shiftdim(t_perms(i+nFE,:,:,:),1), chan_hood, 1, df); %[times chans]
 end
-%% remove intercepts from returned values
 
-% t_perms(1,:,:,:) = [];
-t_obs(1,:,:) = [];
-betas(1,:,:) = [];
-se(1,:,:) = [];

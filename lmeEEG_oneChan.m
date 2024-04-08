@@ -133,7 +133,6 @@ df = m1.DFE; % degrees of freedom for later
 
 clear dataTab; % reduce memory
 
-
 %% get 'true' FE effects from this marginal data
 
 fprintf('\nRunning regressions on marginals');
@@ -165,19 +164,29 @@ parfor iP = 1:nPerms
     end
 end
 
-%% findclust
 
-fprintf('\nFinding clusters');
+%% remove intercept, unless only one given
 
-corrP = NaN(nFE-1, nT, nCh);
-for i = 1:nFE-1 % skip intercept
-    % make inputs [nT nCh (nPerms)]
-    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i+1,:,:),1), shiftdim(t_perms(i+1,:,:,:),1), chan_hood, tail, df); %[times chans]
+if m1.NumCoefficients > 1
+    isInt = strcmp(m1.CoefficientNames, '(Intercept)'); % remove later, allows ' EEG ~ -1 + fac' to be run
+    if any(isInt)
+        fprintf('\nRemoving intercept from cluster-finding and outputs');
+        t_perms(isInt,:,:,:) = [];
+        t_obs(isInt,:,:) = [];
+        betas(isInt,:,:) = [];
+        se(isInt,:,:) = [];
+
+        nFE = size(t_obs,1); % update
+    end
 end
 
-%% remove intercepts from returned values
+%% findclust
 
-% t_perms(1,:,:,:) = [];
-t_obs(1,:,:) = [];
-betas(1,:,:) = [];
-se(1,:,:) = [];
+fprintf('\nFinding clusters:');
+
+corrP = NaN(nFE, nT, nCh);
+for i = 1:nFE % skip intercept
+    % make inputs [nT nCh (nPerms)]
+    corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i,:,:),1), shiftdim(t_perms(i,:,:,:),1), chan_hood, tail, df); %[times chans]
+end
+

@@ -77,6 +77,7 @@ if ~exist('tail','var') || isempty(tail); tail = []; end
 if ~exist('chan_hood','var') || isempty(chan_hood); chan_hood = []; end 
 
 %% run each test
+% assumes only 1 coefficient (excl intercept) per test
 
 corrP = NaN(nTests, nT, nCh); % corrected pvluaes
 for iT = 1:nTests
