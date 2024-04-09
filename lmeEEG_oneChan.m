@@ -1,5 +1,5 @@
-function [corrP, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
-% function [corrP, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
+function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
+% function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
 % 
 % Call lmeEEG pipeline on one-channel's data - quicker way to do
 % mixed-effects permutation testing, by first regressing out random
@@ -41,6 +41,7 @@ function [corrP, t_obs, betas, se, df] = lmeEEG_oneChan(eegMatrix, behTab, formu
 %   betas = [nCoeff, nTimes] "true" beta coeffs from marginal matrix
 %   se = [nCoeff, nTimes] standard errors of "true" beta coeffs
 %   df = degrees of freedom 
+%   t_perms = [nCoeffs nTimes nChans nPerms] permuted t-values
 %  
 
 if ~exist('nPerms','var') || isempty(nPerms)
@@ -189,4 +190,5 @@ for i = 1:nFE % skip intercept
     % make inputs [nT nCh (nPerms)]
     corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i,:,:),1), shiftdim(t_perms(i,:,:,:),1), chan_hood, tail, df); %[times chans]
 end
+
 
