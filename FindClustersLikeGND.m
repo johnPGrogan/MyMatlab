@@ -58,7 +58,7 @@ end
 % nPerms = 100;
 mn_clust_mass = zeros(1,nPerms);
 
-for iPerm = 1:nPerms
+parfor iPerm = 1:nPerms
 
     t = permTVals(:,:,iPerm)'; %[chans times] % get the permuted t-vals
 
