@@ -25,10 +25,15 @@ function [mEEG, m1] = regressOutRE(dataTab, dvMat, formula)
 
 [~, nT, nCh] = size(dvMat);
 
+if isa(dvMat, 'single'); dvMat = double(dvMat); end % fitlme needs double not single
+
 %% run one regression first to get the FE names and design matrix
 
 dataTab.EEG = double(squeeze(dvMat(:,1,1))); 
+t1=tic;
 m1 = fitlme(dataTab, formula);
+t1 = toc(t1);
+fprintf('\nFitting one time/channel took %g seconds', t1);
 % X = designMatrix(m1);
 % nFE = size(X,2); % number of fixed effects
 % df = m1.DFE; % degrees of freedom for later
@@ -41,6 +46,7 @@ eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames]
 fprintf('\nBuilding marginal effects, removing random-effects with formula:\n %s', formula );
 mEEG = NaN(size(dvMat));
 for iCh = 1:nCh
+    if iCh>1; fprintf('%d, ', iCh); end
     parfor iT = 1:nT
         eegTab1 = eegTab; % copy
         eegTab1.EEG = dvMat(: ,iT,iCh); % overwrite EEG
