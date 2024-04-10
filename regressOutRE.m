@@ -44,7 +44,7 @@ eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames]
 %% now regress each time+chan
 
 fprintf('\nBuilding marginal effects, removing random-effects with formula:\n %s', formula );
-mEEG = NaN(size(dvMat));
+mEEG = single(NaN(size(dvMat)));
 for iCh = 1:nCh
     if iCh>1; fprintf('%d, ', iCh); end
     parfor iT = 1:nT
@@ -53,6 +53,6 @@ for iCh = 1:nCh
 
         m = fitlme(eegTab1, formula); % fit it
 
-        mEEG(:,iT,iCh) = fitted(m,'Conditional',0) + residuals(m); % Extract marginal EEG = FE + residuals
+        mEEG(:,iT,iCh) = single(fitted(m,'Conditional',0) + residuals(m)); % Extract marginal EEG = FE + residuals
     end
 end

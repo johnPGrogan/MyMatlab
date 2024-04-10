@@ -133,11 +133,12 @@ nFE = size(X,2); % number of fixed effects
 df = m1.DFE; % degrees of freedom for later
 
 clear dataTab; % reduce memory
+clear dvMat;
 
 %% get 'true' FE effects from this marginal data
 
 fprintf('\nRunning regressions on marginals');
-[t_obs, betas, se] = deal(NaN(nFE, nT, nCh));
+[t_obs, betas, se] = deal(single(NaN(nFE, nT, nCh)));
 parfor iCh = 1:nCh
     EEG = mEEG(:,:,iCh); % copy
     [t_obs(:,:,iCh), betas(:,:,iCh), se(:,:,iCh)] = lmeEEG_regress(EEG, X)
@@ -154,7 +155,7 @@ fprintf('\nCreating row permutations');
 % still given unique permutations across entire dataset if a lot of trials
 
 fprintf('\nRunning %d permutations: ', nPerms);
-t_perms = NaN(nFE,nT,nCh,nPerms); % Initialize t-map
+t_perms = single(NaN(nFE,nT,nCh,nPerms)); % Initialize t-map
 parfor iP = 1:nPerms
     XX = X(rowPerms(:,iP),:); % get indices for this perm
     if mod(iP,nPerms/10)==0; disp(iP); end % fprintf does not get output within parfor, only at end, so use disp
@@ -185,7 +186,7 @@ end
 
 fprintf('\nFinding clusters:');
 
-corrP = NaN(nFE, nT, nCh);
+corrP = single(NaN(nFE, nT, nCh));
 for i = 1:nFE % skip intercept
     % make inputs [nT nCh (nPerms)]
     corrP(i,:,:) = FindClustersLikeGND(shiftdim(t_obs(i,:,:),1), shiftdim(t_perms(i,:,:,:),1), chan_hood, tail, df); %[times chans]

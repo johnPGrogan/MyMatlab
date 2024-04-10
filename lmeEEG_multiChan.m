@@ -58,7 +58,10 @@ if ~exist('skipCluster','var') || isempty(skipCluster)
     skipCluster = 0;
 else
     if ~exist('chanlocs','var') || isempty(chanlocs) % only needed if used
-        chanlocs = false; % one channel
+        error('chanlocs must be given if not skipping tfce clustering');
+    end
+    if ~exist('ept_ChN2','file')
+        addpath(genpath('C:\Users\groganj1\OneDrive - TCDUD.onmicrosoft.com\GeneralScriptsOD\MatlabPackages\ept_TFCE-matlab-master'))
     end
 end 
     
@@ -136,11 +139,12 @@ nFE = size(X,2); % number of fixed effects
 df = m1.DFE; % degrees of freedom for later
 
 clear dataTab; % reduce memory
+clear dvMat;
 
 %% get 'true' FE effects from this marginal data
 
 fprintf('\nRunning regressions on marginals');
-[t_obs, betas, se] = deal(NaN(nFE, nT, nCh));
+[t_obs, betas, se] = deal(single(NaN(nFE, nT, nCh)));
 parfor iCh = 1:nCh
     EEG = mEEG(:,:,iCh); % copy
     [t_obs(:,:,iCh), betas(:,:,iCh), se(:,:,iCh)] = lmeEEG_regress(EEG, X)
@@ -157,7 +161,7 @@ fprintf('\nCreating row permutations');
 % still given unique permutations across entire dataset if a lot of trials
 
 fprintf('\nRunning %d permutations: ', nPerms);
-t_perms = NaN(nFE,nT,nCh,nPerms); % Initialize t-map
+t_perms = single(NaN(nFE,nT,nCh,nPerms)); % Initialize t-map
 parfor iP = 1:nPerms
     XX = X(rowPerms(:,iP),:); % get indices for this perm
     if mod(iP,nPerms/10)==0; disp(iP); end % fprintf does not get output within parfor, only at end, so use disp
@@ -188,17 +192,18 @@ end
 
 if skipCluster
     fprintf('\Skipping clusters:');
-    corrP = NaN(size(t_obs));
+    corrP = single(NaN(size(t_obs)));
     return;
 end
 
 fprintf('\nFinding clusters:');
 
-corrP = NaN(nFE, nT, nCh);
+corrP = single(NaN(nFE, nT, nCh));
 for i = 1:nFE % skip intercept
     % this uses parfor now
-    tfceRes = lmeEEG_TFCE(squeeze(t_obs(i,:,:))', permute(t_perms(i,:,:,:),[4,3,2,1]), chanlocs, [0.66 2]);
-    corrP(i,:,:) = tfceRes.P_Values';
+    tfceRes = lmeEEG_TFCE(squeeze(double(t_obs(i,:,:)))', permute(double(t_perms(i,:,:,:)),[4,3,2,1]), chanlocs, [0.66 2]);
+    corrP(i,:,:,1) = tfceRes.P_Values';
+
 end
 
 
