@@ -41,6 +41,7 @@ for iT = 1:nTests
     if length(levelsToTest{iT})>2
         disp('multiple level factor: '); disp(levelsToTest{iT});
         % passing multiple level factor in
+        nL = length(levelsToTest{iT}); % update
 
         d = reshape(permute(dataByFac(:,:,levelsToTest{iT}),[1,3,2]),nPP*nL,nT); % make [nPP*nL, nT]
         DES = [flat(ones(nPP,nL))  zscore(flat(repmat(1:nL,[nPP,1]))) ]; % design matrix [1, factor]
