@@ -252,7 +252,7 @@ if m1.NumCoefficients > 1
         betas(isInt,:,:) = [];
         se(isInt,:,:) = [];
 
-        nFE = size(t_obs,1); % update
+        nFE = sum(~isInt); % t_obs has contrasts in too, so adjust differently % size(t_obs,1); % update
     end
 end
 
