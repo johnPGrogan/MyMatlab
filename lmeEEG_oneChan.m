@@ -116,6 +116,21 @@ if any(isnan(table2array(dataTab)),'all')
     clearvars dataTab1 m colNames;
 end
 
+%% check are there nan columns remaining? 
+% means you cannot use qr() on design matrix as column has different rows,
+% so instead you need to use a slower version that loops through columns
+% can parfor across dims 2:3?
+
+stillNaN = isnan(dvMat);
+if any(stillNaN, 'all')
+    % should be different per column, since we removed all-nan rows?
+    if length(unique(sum(~stillNaN))) == 1
+        error('all-nan removal failed');
+    else
+        error('some columns still have NaNs in them, either remove those NaNs or use lmeEEG_slow (slower and more conservative)');
+    end
+end
+
 %% zscore predictors after removals
 
 v = dataTab.Properties.VariableNames; % store
@@ -141,7 +156,7 @@ fprintf('\nRunning regressions on marginals');
 [t_obs, betas, se] = deal(single(NaN(nFE, nT, nCh)));
 parfor iCh = 1:nCh
     EEG = mEEG(:,:,iCh); % copy
-    [t_obs(:,:,iCh), betas(:,:,iCh), se(:,:,iCh)] = lmeEEG_regress(EEG, X)
+    [t_obs(:,:,iCh), betas(:,:,iCh), se(:,:,iCh)] = lmeEEG_regress(EEG, X);
 end
 
 
@@ -165,7 +180,6 @@ parfor iP = 1:nPerms
         [t_perms(:,:,iCh,iP)] = lmeEEG_regress(mEEG(:,:,iCh), XX); % this works across row of samples now
     end
 end
-
 
 %% remove intercept, unless only one given
 

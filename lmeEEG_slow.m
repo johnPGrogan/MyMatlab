@@ -1,6 +1,11 @@
 function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_slow(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
 % function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_slow(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
 % 
+% This is a slower version of lmeEEG_oneChan that allows NaNs to differ
+% across columns (i.e. time/chans). It runs slower as it does each
+% time*chan separately, and it also uses the most conservative t-statistic
+% threshold for the clustering (i.e. highest df across all columns).
+% 
 % Call lmeEEG pipeline on one-channel's data - quicker way to do
 % mixed-effects permutation testing, by first regressing out random
 % effects.
@@ -116,21 +121,6 @@ if any(isnan(table2array(dataTab)),'all')
     clearvars dataTab1 m colNames;
 end
 
-%% check are there nan columns remaining? 
-% means you cannot use qr() on design matrix as column has different rows,
-% so instead you need to use a slower version that loops through columns
-% can parfor across dims 2:3?
-
-stillNaN = isnan(dvMat);
-if any(stillNaN, 'all')
-    % should be different per column, since we removed all-nan rows?
-    if length(unique(sum(~stillNaN))) == 1
-        error('all-nan removal failed');
-    else
-        error('some columns still have NaNs in them, so you have to use the slower lmeEEG_regress that runs on each column separately')
-    end
-end
-
 %% zscore predictors after removals
 
 v = dataTab.Properties.VariableNames; % store
@@ -140,6 +130,8 @@ dataTab.Properties.VariableNames = v; % replace names
 [nRows, nT, nCh] = size(dvMat);
 fprintf('\n%d Rows, %d Time-points, %d Channels, %d Permutations', nRows, nT, nCh, nPerms)
 
+n = nT*nCh; % will parfor across this
+
 %% regress out RE, leaving just fitted FE + residuals
 
 [mEEG, m1] = regressOutRE(dataTab, dvMat, formula);
@@ -147,18 +139,33 @@ X = designMatrix(m1);
 nFE = size(X,2); % number of fixed effects
 df = m1.DFE; % degrees of freedom for later
 
+% since there are different #NaNs and therefore df per column, will use the
+% largest one, to give most conservative t_threshold for clustering
+
+% need to pick one df to use
+% use largest df = most conservative t_stat threshold
+nTrs = minMax(sum(~isnan(dvMat)),'all'); % find [smallest largest] numbers of trials
+
+% get df for each of these, by subtracting the df difference out
+dfs = nTrs - (m1.NumObservations - df);
+
+df = max(dfs); % take largest, to set threshold higher
+
 clear dataTab; % reduce memory
 clear dvMat;
 
 %% get 'true' FE effects from this marginal data
 
+% set these up as [nFE, nT, nCh] but then just loop over nT*nCh in one go
+
 fprintf('\nRunning regressions on marginals');
 [t_obs, betas, se] = deal(single(NaN(nFE, nT, nCh)));
-parfor iCh = 1:nCh
-    EEG = mEEG(:,:,iCh); % copy
-    [t_obs(:,:,iCh), betas(:,:,iCh), se(:,:,iCh)] = lmeEEG_regress(EEG, X);
+tic;
+parfor i = 1:n
+    EEG = mEEG(:,i); % copy
+    [t_obs(:,i), betas(:,i), se(:,i)] = lmeEEG_regress(EEG, X);
 end
-
+toc
 
 %% permutation test
 
@@ -170,18 +177,21 @@ fprintf('\nCreating row permutations');
 % still given unique permutations across entire dataset if a lot of trials
 
 fprintf('\nRunning %d permutations: ', nPerms);
-t_perms = single(NaN(nFE,nT,nCh,nPerms)); % Initialize t-map
+t_perms = single(NaN(nFE,nT*nCh,nPerms)); % Initialize t-map, combine nT*nCh, will reshape after
+tic
 parfor iP = 1:nPerms
     XX = X(rowPerms(:,iP),:); % get indices for this perm
     if mod(iP,nPerms/10)==0; disp(iP); end % fprintf does not get output within parfor, only at end, so use disp
         
-    for iCh = 1:nCh
+    for i = 1:n
 %         EEG = mEEG(:,:,iCh); % copy   
-        [t_perms(:,:,iCh,iP)] = lmeEEG_regress(mEEG(:,:,iCh), XX); % this works across row of samples now
+        [t_perms(:,i,iP)] = lmeEEG_regress(mEEG(:,i), XX); % 1 column at a time
     end
 end
 
-
+% separate time+chans back out
+t_perms = reshape(t_perms, nFE,nT,nCh,nPerms); 
+toc
 %% remove intercept, unless only one given
 
 if m1.NumCoefficients > 1

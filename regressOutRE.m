@@ -45,14 +45,16 @@ eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames]
 
 fprintf('\nBuilding marginal effects, removing random-effects with formula:\n %s', formula );
 mEEG = single(NaN(size(dvMat)));
-for iCh = 1:nCh
-    if iCh>1; fprintf('%d, ', iCh); end
-    parfor iT = 1:nT
+n=nT*nCh; % parfor across both time*chans at once to be quicker
+% for iCh = 1:nCh
+%     if iCh>1; fprintf('%d, ', iCh); end
+    parfor i = 1:n
+        if mod(i, round(n/10))==0; disp(i); end
         eegTab1 = eegTab; % copy
-        eegTab1.EEG = dvMat(: ,iT,iCh); % overwrite EEG
+        eegTab1.EEG = dvMat(: ,i); % overwrite EEG
 
         m = fitlme(eegTab1, formula); % fit it
 
-        mEEG(:,iT,iCh) = single(fitted(m,'Conditional',0) + residuals(m)); % Extract marginal EEG = FE + residuals
+        mEEG(:,i) = single(fitted(m,'Conditional',0) + residuals(m)); % Extract marginal EEG = FE + residuals
     end
-end
+% end
