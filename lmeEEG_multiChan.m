@@ -57,7 +57,8 @@ end
 
 if ~exist('skipCluster','var') || isempty(skipCluster)
     skipCluster = 0;
-else
+end
+if ~skipCluster
     if ~exist('chanlocs','var') || isempty(chanlocs) % only needed if used
         error('chanlocs must be given if not skipping tfce clustering');
     end
