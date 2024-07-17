@@ -38,7 +38,8 @@ function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_multiChan(eegMatrix, be
 %   t_obs = [nCoeff nTimes] "true" t-values from the 'marginal effects
 %     matrix', i.e., with the RandomEffects regressed out
 %   betas = [nCoeff, nTimes] "true" beta coeffs from marginal matrix
-%   se = [nCoeff, nTimes] standard errors of "true" beta coeffs
+%   se = [nCoeff, nTimes] standard errors of "true" beta coeffs from full
+%     data - not from marginal data as those are too small
 %   df = degrees of freedom 
 %   t_perms = [nCoeffs nTimes nChans nPerms] permuted t-values
 %
@@ -133,7 +134,7 @@ fprintf('\n%d Rows, %d Time-points, %d Channels, %d Permutations', nRows, nT, nC
 
 %% regress out RE, leaving just fitted FE + residuals
 
-[mEEG, m1] = regressOutRE(dataTab, dvMat, formula);
+[mEEG, m1, se] = regressOutRE(dataTab, dvMat, formula);
 X = designMatrix(m1);
 nFE = size(X,2); % number of fixed effects
 df = m1.DFE; % degrees of freedom for later
@@ -144,10 +145,10 @@ clear dvMat;
 %% get 'true' FE effects from this marginal data
 
 fprintf('\nRunning regressions on marginals');
-[t_obs, betas, se] = deal(single(NaN(nFE, nT, nCh)));
+[t_obs, betas] = deal(single(NaN(nFE, nT, nCh)));
 parfor iCh = 1:nCh
     EEG = mEEG(:,:,iCh); % copy
-    [t_obs(:,:,iCh), betas(:,:,iCh), se(:,:,iCh)] = lmeEEG_regress(EEG, X)
+    [t_obs(:,:,iCh), betas(:,:,iCh)] = lmeEEG_regress(EEG, X)
 end
 
 

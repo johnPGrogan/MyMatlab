@@ -43,8 +43,10 @@ function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_slow(eegMatrix, behTab,
 %   corrP = cluster-corrected p-values [nCoeff, nTimes]
 %   t_obs = [nCoeff nTimes] "true" t-values from the 'marginal effects
 %     matrix', i.e., with the RandomEffects regressed out
-%   betas = [nCoeff, nTimes] "true" beta coeffs from marginal matrix
-%   se = [nCoeff, nTimes] standard errors of "true" beta coeffs
+%   betas = [nCoeff, nTimes] "true" beta coeffs from marginal matrix (will
+%    be almost identical to true beta coeffs from full data
+%   se = [nCoeff, nTimes] standard errors of "true" beta coeffs from full
+%     data - not from marginal data as those are too small
 %   df = degrees of freedom 
 %   t_perms = [nCoeffs nTimes nChans nPerms] permuted t-values
 %  
@@ -134,7 +136,7 @@ n = nT*nCh; % will parfor across this
 
 %% regress out RE, leaving just fitted FE + residuals
 
-[mEEG, m1] = regressOutRE(dataTab, dvMat, formula);
+[mEEG, m1, se] = regressOutRE(dataTab, dvMat, formula);
 X = designMatrix(m1);
 nFE = size(X,2); % number of fixed effects
 df = m1.DFE; % degrees of freedom for later
@@ -159,13 +161,11 @@ clear dvMat;
 % set these up as [nFE, nT, nCh] but then just loop over nT*nCh in one go
 
 fprintf('\nRunning regressions on marginals');
-[t_obs, betas, se] = deal(single(NaN(nFE, nT, nCh)));
-tic;
+[t_obs, betas] = deal(single(NaN(nFE, nT, nCh)));
 parfor i = 1:n
     EEG = mEEG(:,i); % copy
-    [t_obs(:,i), betas(:,i), se(:,i)] = lmeEEG_regress(EEG, X);
+    [t_obs(:,i), betas(:,i)] = lmeEEG_regress(EEG, X);
 end
-toc
 
 %% permutation test
 
@@ -178,7 +178,6 @@ fprintf('\nCreating row permutations');
 
 fprintf('\nRunning %d permutations: ', nPerms);
 t_perms = single(NaN(nFE,nT*nCh,nPerms)); % Initialize t-map, combine nT*nCh, will reshape after
-tic
 parfor iP = 1:nPerms
     XX = X(rowPerms(:,iP),:); % get indices for this perm
     if mod(iP,nPerms/10)==0; disp(iP); end % fprintf does not get output within parfor, only at end, so use disp
@@ -191,7 +190,7 @@ end
 
 % separate time+chans back out
 t_perms = reshape(t_perms, nFE,nT,nCh,nPerms); 
-toc
+
 %% remove intercept, unless only one given
 
 if m1.NumCoefficients > 1

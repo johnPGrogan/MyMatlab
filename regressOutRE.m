@@ -1,5 +1,5 @@
-function [mEEG, m1] = regressOutRE(dataTab, dvMat, formula)
-% function [mEEG, m1] = regressOutRE(dataTab, dvMat, formula)
+function [mEEG, m1, se] = regressOutRE(dataTab, dvMat, formula)
+% function [mEEG, m1, se] = regressOutRE(dataTab, dvMat, formula)
 % 
 % To prepare to run lmeEEG_regress, first regress out random-effects from
 % each channel + time-point, returning just the Fixed-effects + Residuals
@@ -19,7 +19,8 @@ function [mEEG, m1] = regressOutRE(dataTab, dvMat, formula)
 %     random effects removed).
 %   m1 = regression fitted to the 1st timepoint + channel, so has the
 %     design matrix, coefficient names, and degrees of freedom
-% 
+%   se = beta-coefficients SEs from the full dataset (i.e. not the marginal
+%     dataset SE which are much smaller)
 % 
 
 
@@ -45,6 +46,7 @@ eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames]
 
 fprintf('\nBuilding marginal effects, removing random-effects with formula:\n %s', formula );
 mEEG = single(NaN(size(dvMat)));
+se = single(NaN(m1.NumCoefficients, nT, nCh)); % to store true SE
 n=nT*nCh; % parfor across both time*chans at once to be quicker
 % for iCh = 1:nCh
 %     if iCh>1; fprintf('%d, ', iCh); end
@@ -56,5 +58,8 @@ n=nT*nCh; % parfor across both time*chans at once to be quicker
         m = fitlme(eegTab1, formula); % fit it
 
         mEEG(:,i) = single(fitted(m,'Conditional',0) + residuals(m)); % Extract marginal EEG = FE + residuals
+
+        % store SE from true data here, as marginals have much smaller SE
+        se(:,i) = m.Coefficients.SE;
     end
 % end
