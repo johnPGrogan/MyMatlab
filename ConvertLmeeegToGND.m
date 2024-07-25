@@ -1,4 +1,4 @@
-function GND = ConvertLmeeegToGND(betas, t_obs, corrP, se, times, chanNames, chanlocs, bin_names)
+function GND = ConvertLmeeegToGND(betas, t_obs, corrP, se, times, chanNames, chanlocs, bin_names, exp_name)
 % turns outputs from lmeeeg into GND structure that can be passed into
 % gui_erp. betas/t_obs,corrP,se should all be size [nCoeffs, nTimes, nChans]
 % and it will create a 'bin' for each coefficient. It uses beta-coeffs in
@@ -15,6 +15,8 @@ function GND = ConvertLmeeegToGND(betas, t_obs, corrP, se, times, chanNames, cha
 %   chanNames = cell array of channel names
 %   chanlocs = structure array of channel locations
 %   bin_names = names of each coefficient, which will be used as bin-labels
+%   exp_name = [optional] string to put as exp name, used to figure title
+%       (default is empty string)
 % 
 % Outputs:
 %   GND: structure for use in gui_erp (DMGroppe mass univariate toolbox)
@@ -28,17 +30,13 @@ assert(length(times) == nTimes, 'number of timepoints in betas does not match ti
 assert(length(chanNames) == nChans, 'chanNames length does not match number of channels in betas');
 assert(length(chanlocs) == nChans, 'chanlocs length does not match number of channels in betas');
 
+if ~exist('exp_name','var'); exp_name = ''; end
 
-% betas = betas{j}(:,:,:,iSp); % use instead of voltage for plots
-% t_obs = t_obs{j}(:,:,:,iSp);
-% corrP = corrP{j}(:,:,:,iSp);
-% se = se{j}(:,:,:,iSp);
-% times = wins.(epochNames{j})(2:end);
 
 %% put data into structure
 
 GND = struct();
-GND.exp_desc = ''; % leave empty
+GND.exp_desc = exp_name;
 GND.chanlocs = chanlocs;
 GND.time_pts = times;
 
