@@ -1,4 +1,4 @@
-function edf2ascMat(fileName, exeFile, overwrite)
+function [status, msg] = edf2ascMat(fileName, exeFile, overwrite)
 % edf2ascMat(fileName, exeFile, overwrite)
 % convert edf file(s) to edf via system call
 % fileName is either a string of one file name, or cell array of many
@@ -15,12 +15,12 @@ end
 
 if isa(fileName, 'char') % if one file
     
-    makeEdf(fileName, exeFile);
+    [status, msg] = makeEdf(fileName, exeFile);
     
 elseif isa(fileName, 'cell') % if a cell array of files
     
     for i = 1:length(fileName) % convert each cell separately
-        makeEdf(fileName{i}, exeFile, overwrite);
+        [status, msg] = makeEdf(fileName{i}, exeFile, overwrite);
     end
     
 else
@@ -31,7 +31,7 @@ end
 
 end
 
-function makeEdf(fileName, exeFile, overwrite)
+function [status, msg] = makeEdf(fileName, exeFile, overwrite)
 % makeEdf(fileName, exeFile)
 % checks if edf file already exists, prompts for overwriting if so, creates
 % if not
@@ -61,7 +61,7 @@ if exist(ascName, 'file')
     
 else % if no asc file already
     
-    system([exeFile ' ' fileName]);
+    [status,msg] = system([exeFile ' ' fileName]);
     
 end
 
