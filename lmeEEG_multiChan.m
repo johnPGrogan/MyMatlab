@@ -8,11 +8,10 @@ function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_multiChan(eegMatrix, be
 % runs a fixed-effects regression on those to get the "true" t-values. It
 % then runs a permutation test, swapping conditions within each
 % participant, and regressing the fixed-effects to build the null
-% distribution, and uses my FindClusterLikeGND.m (based on DMGroppe toolbox)
-% to get the clusters, rather than lmeEEG's TFCE as that does not seem to
-% work for 1-channel.
+% distribution, and uses my lmeEEG_TFCE for clustering (takes a bit longer
+% than FindClusers, but seems a bit more accurate?
 % 
-% Uses parfor, col, nanzscore, FindClusterLikeGND, and lmeEEG toolbox
+% Uses parfor, col, nanzscore, lmeEEG_TFCE, and lmeEEG toolbox
 % 
 % 
 % Inputs:
