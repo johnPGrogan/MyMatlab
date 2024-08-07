@@ -114,7 +114,7 @@ if any(isnan(table2array(dataTab)),'all')
     dataTab1.EEG = dvMat(:,1,1);
     m = fitglme(dataTab1, formula);
     colNames = m.Formula.PredictorNames; % get names to keep
-    dataTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames])); % remove other columns for parfor
+    dataTab = dataTab(:, ismember(dataTab.Properties.VariableNames,  unique([m.Formula.ResponseName 'EEG', colNames]))); % remove other columns for parfor
 
     toRemove = any(isnan(table2array(dataTab)),2); % remove any nan rows from this
     dataTab(toRemove,:) = [];
@@ -202,7 +202,7 @@ fprintf('\nFinding clusters:');
 corrP = single(NaN(nFE, nT, nCh));
 for i = 1:nFE % skip intercept
     % this uses parfor now
-    tfceRes = lmeEEG_TFCE(squeeze(double(t_obs(i,:,:)))', permute(double(t_perms(i,:,:,:)),[4,3,2,1]), chanlocs, [0.66 2]);
+    tfceRes = lmeEEG_TFCE(permute(double(t_obs(i,:,:)),[3,2,1]), permute(double(t_perms(i,:,:,:)),[4,3,2,1]), chanlocs, [0.66 2]);
     corrP(i,:,:,1) = tfceRes.P_Values';
 
 end

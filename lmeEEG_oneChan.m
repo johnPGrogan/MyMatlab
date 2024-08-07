@@ -1,5 +1,5 @@
-function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
-% function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood)
+function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood, keepIntercept)
+% function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_oneChan(eegMatrix, behTab, formula, nPerms, tail, chan_hood, keepIntercept)
 % 
 % Call lmeEEG pipeline on one-channel's data - quicker way to do
 % mixed-effects permutation testing, by first regressing out random
@@ -33,6 +33,8 @@ function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_oneChan(eegMatrix, behT
 %       that there is a difference)
 %   chan_hood = if 1 channel given, is set to false, otherwise should be:
 %     chan_hood = spatial_neighbors(eeg.chanlocs, 0.61, []);
+%   keepIntercept = (default=0), 1=keep intercept and run through
+%      clustering
 % 
 % Outputs (no longer returns intercept row):
 %   corrP = cluster-corrected p-values [nCoeff, nTimes]
@@ -59,6 +61,12 @@ end
 
 if ~exist('chan_hood','var') || isempty(chan_hood)
     chan_hood = false; % one channel
+else
+    assert(isnumeric(chan_hood), 'chan_hood is not a double matrix')
+    assert(size(chan_hood,1)==size(eegMatrix,3), 'chan_hood does not match channels')
+end
+if ~exist('keepIntercept','var') || isempty(keepIntercept)
+    keepIntercept = 0;
 end
 
 %% can pass in eeg table? and beh table? and then FE + RE?
@@ -109,7 +117,7 @@ if any(isnan(table2array(dataTab)),'all')
     dataTab1.EEG = dvMat(:,1,1);
     m = fitglme(dataTab1, formula);
     colNames = m.Formula.PredictorNames; % get names to keep
-    dataTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames])); % remove other columns for parfor
+    dataTab = dataTab(:, ismember(dataTab.Properties.VariableNames, unique([m.Formula.ResponseName 'EEG', colNames]))); % remove other columns for parfor
 
     toRemove = any(isnan(table2array(dataTab)),2); % remove any nan rows from this
     dataTab(toRemove,:) = [];
@@ -187,7 +195,7 @@ end
 
 %% remove intercept, unless only one given
 
-if m1.NumCoefficients > 1
+if m1.NumCoefficients > 1 && ~keepIntercept
     isInt = strcmp(m1.CoefficientNames, '(Intercept)'); % remove later, allows ' EEG ~ -1 + fac' to be run
     if any(isInt)
         fprintf('\nRemoving intercept from cluster-finding and outputs');

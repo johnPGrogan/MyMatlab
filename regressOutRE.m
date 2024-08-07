@@ -40,7 +40,7 @@ fprintf('\nFitting one time/channel took %g seconds', t1);
 % df = m1.DFE; % degrees of freedom for later
 
 colNames = m1.Formula.PredictorNames; % get names to keep
-eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, ['EEG', colNames])); % remove other columns for parfor
+eegTab = dataTab(:, ismember(dataTab.Properties.VariableNames, unique([m1.Formula.ResponseName 'EEG', colNames]))); % remove other columns for parfor
 
 %% now regress each time+chan
 
