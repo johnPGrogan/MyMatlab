@@ -1,5 +1,5 @@
-function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_multiChan(eegMatrix, behTab, formula, nPerms, tail, chanlocs, skipCluster)
-% function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_multiChan(eegMatrix, behTab, formula, nPerms, tail, chanlocs, skipCluster)
+function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_multiChan(eegMatrix, behTab, formula, nPerms, tail, chanlocs, skipCluster, keepIntercept)
+% function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_multiChan(eegMatrix, behTab, formula, nPerms, tail, chanlocs, skipCluster, keepIntercept)
 % 
 % Call lmeEEG pipeline for multi-channel data, uses TFCE instead of
 % findCluster (quicker) and can skip that too if desired.
@@ -31,6 +31,8 @@ function [corrP, t_obs, betas, se, df, t_perms] = lmeEEG_multiChan(eegMatrix, be
 %       that there is a difference)
 %   chanlocs = eeg chanlocs structure
 %   skipCluster = 1=don't find clusters, just return t_perms etc, default=0
+%   keepIntercept = (default=0), 1=keep intercept and run through
+%      clustering
 % 
 % Outputs (no longer returns intercept row):
 %   corrP = cluster-corrected p-values [nCoeff, nTimes]
@@ -65,6 +67,9 @@ if ~skipCluster
         addpath(genpath('C:\Users\groganj1\OneDrive - TCDUD.onmicrosoft.com\GeneralScriptsOD\MatlabPackages\ept_TFCE-matlab-master'))
     end
 end 
+if ~exist('keepIntercept','var') || isempty(keepIntercept)
+    keepIntercept = 0;
+end
     
 %% can pass in eeg table? and beh table? and then FE + RE?
 if exist('behTab','var') && ~isempty(behTab)
@@ -176,7 +181,7 @@ end
 
 %% remove intercept, unless only one given
 
-if m1.NumCoefficients > 1
+if m1.NumCoefficients > 1 && ~keepIntercept
     isInt = strcmp(m1.CoefficientNames, '(Intercept)'); % remove later, allows ' EEG ~ -1 + fac' to be run
     if any(isInt)
         fprintf('\nRemoving intercept from cluster-finding and outputs');

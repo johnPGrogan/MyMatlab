@@ -50,7 +50,7 @@ if exist('behTab','var') && ~isempty(behTab)
     [nRows, nT, nCh] = size(eegMatrix);
     assert(nRows == height(behTab), 'eegMatrix and behTab have diffferent number of rows');
 
-    assert(ismatrix(levelsToTest), 'levelsToTest must be matrix if behTab given');
+    assert(ismatrix(levelsToTest) && ~isempty(levelsToTest), 'levelsToTest must be matrix if behTab given');
 
     nTests = size(levelsToTest,2);
 
