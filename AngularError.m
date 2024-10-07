@@ -5,7 +5,7 @@ function error = AngularError(x,y,unit)
 % Inputs:
 %   x&y: matrix/vector/scalar angles in radians (-pi:pi) or degrees
 %       (-180:180). should be same size or broadcastable
-%   isRadians: 1 = is radians, 0 = isdegrees
+%   unit: 'radians', or 'degrees'. default='radians'
 
 if ~exist('unit','var') || isempty(unit)
     unit = 'radians';
