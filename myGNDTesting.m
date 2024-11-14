@@ -72,7 +72,7 @@ for i = 1:size(diffBins,1)
 
     % FDR controlled univariate t-tests
     if doUnivars(i)
-        GND = tfdrGND(GND, binInd, 'method', 'by', 'time_wind', timeWindow, 'save_GND', 'no','plot_raster','no');
+        GND = tfdrGND(GND, binInd, 'method', 'bh', 'time_wind', timeWindow, 'save_GND', 'no','plot_raster','no');
     end
 
     drawnow;

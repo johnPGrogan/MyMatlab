@@ -51,6 +51,7 @@ end
 %% plot it
 
 for i = 1:2
+    if ~any(acc==(2-i)); continue; end
     [y(i,:),x(i,:)] = ksdensity(rt(acc==(2-i)), ksArgs{:});
 end
 
