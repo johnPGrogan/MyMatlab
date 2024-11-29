@@ -6,7 +6,11 @@ if nargin < 2
     dim = 'all';%default along rows
     dim2 = 1;
 else 
-    dim2=dim;
+    if length(dim)==1
+        dim2=dim;
+    else 
+        dim2 = min(dim); % if multiple, take smallest
+    end
 end
 
 uniqs = unique(mat);%get uniques
