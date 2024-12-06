@@ -1,5 +1,5 @@
-function p = myPermOls(dataByFac, levelsToTest, permArgs, times, colours, yVals)
-% function myPermOls(dataByFac, levelsToTest, permArgs, times, colours, yVals)
+function p = myPermOls(dataByFac, levelsToTest, permArgs, times, colours, yVals, plotArgs)
+% function myPermOls(dataByFac, levelsToTest, permArgs, times, colours, yVals, plotArgs)
 % 
 % Wrapper function for permutationOLS, allows easy running of multiple
 % difference waves or comparisons, and plotting of the pbars
@@ -18,6 +18,8 @@ function p = myPermOls(dataByFac, levelsToTest, permArgs, times, colours, yVals)
 %   colours = [optional] colours to use for each test [nTests, 3]. default
 %     is [0 0 0] and then figure colour order
 %   yVals = [optional] yValues to plot pbars at [1 nTests]
+%   plotArgs = cell array of pbar arguments (apart from color). default is
+%     {'LineWidth',5}
 % 
 % Outputs:
 %   p = [nTests, nT] pvalue outputs from permutaitonOLS
@@ -72,6 +74,10 @@ end
 if exist('times','var') && ~isempty(times)
      % plot pbars
 
+     if ~exist('plotArgs','var') || isempty(plotArgs)
+         plotArgs = {'LineWidth',5}; % colour will be set below
+     end
+
     isSig = any(p < .05, 2);  % only plot sig ones
     if any(isSig) % only plot if there are any
         if ~exist('yVals','var') || isempty(yVals)
@@ -86,7 +92,7 @@ if exist('times','var') && ~isempty(times)
         f = find(isSig);% can skip out any missing ones?
         for iT = 1:length(f)
             hold on;
-            pbar(p(f(iT),:), 'xVals',times, 'yVal', yVals(iT), 'plotargs',{'LineWidth',5,'Color',colours(f(iT),:)});
+            pbar(p(f(iT),:), 'xVals',times, 'yVal', yVals(iT), 'plotargs',{'Color',colours(f(iT),:), plotArgs{:}});
         end 
     end
 end
