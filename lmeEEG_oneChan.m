@@ -68,6 +68,13 @@ end
 if ~exist('keepIntercept','var') || isempty(keepIntercept)
     keepIntercept = 0;
 end
+if ~exist('lmeEEG_regress','file')
+    addpath(genpath('C:\Users\groganj1\OneDrive - TCDUD.onmicrosoft.com\GeneralScriptsOD\MatlabPackages\lmeEEG-main\functions\'));
+end
+if ~exist('find_clusters','file')
+    addpath(genpath('C:\toolbox\eeglab2021.1\plugins\Mass_Univariate_ERP_Toolbox-master\'));
+end
+
 
 %% can pass in eeg table? and beh table? and then FE + RE?
 if exist('behTab','var') && ~isempty(behTab)

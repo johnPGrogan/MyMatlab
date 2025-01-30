@@ -75,6 +75,12 @@ end
 % use lmeeeg_onechan defaults
 if ~exist('tail','var') || isempty(tail); tail = []; end
 if ~exist('chan_hood','var') || isempty(chan_hood); chan_hood = []; end 
+if ~exist('lmeEEG_regress','file')
+    addpath(genpath('C:\Users\groganj1\OneDrive - TCDUD.onmicrosoft.com\GeneralScriptsOD\MatlabPackages\lmeEEG-main\functions\'));
+end
+if ~exist('find_clusters','file')
+    addpath(genpath('C:\toolbox\eeglab2021.1\plugins\Mass_Univariate_ERP_Toolbox-master\'));
+end
 
 %% run each test
 % assumes only 1 coefficient (excl intercept) per test
