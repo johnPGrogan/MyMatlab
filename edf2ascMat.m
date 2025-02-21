@@ -15,7 +15,7 @@ end
 
 if isa(fileName, 'char') % if one file
     
-    [status, msg] = makeEdf(fileName, exeFile);
+    [status, msg] = makeEdf(fileName, exeFile, overwrite);
     
 elseif isa(fileName, 'cell') % if a cell array of files
     
@@ -35,6 +35,8 @@ function [status, msg] = makeEdf(fileName, exeFile, overwrite)
 % makeEdf(fileName, exeFile)
 % checks if edf file already exists, prompts for overwriting if so, creates
 % if not
+
+[status,msg] = deal(0); % pre-set in case of error
 if ~exist(fileName,'file')
     error('edf file not found: %s', fileName)
 end
