@@ -197,7 +197,7 @@ end
 %% findclust
 
 if skipCluster
-    fprintf('\Skipping clusters:');
+    fprintf('\nSkipping clusters:');
     corrP = single(NaN(size(t_obs)));
     return;
 end
